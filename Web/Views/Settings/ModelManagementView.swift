@@ -10,6 +10,10 @@ struct ModelManagementView: View {
     @State private var showingDirectoryPicker = false
     @State private var showingModelDetails: ModelDiscoveryService.DiscoveredModel?
     @State private var isRefreshing = false
+    @State private var cacheStatus: CacheStatus?
+    @State private var isCleaningCache = false
+    @State private var showingCacheAlert = false
+    @State private var cacheAlertMessage = ""
     
     var body: some View {
         VStack(alignment: .leading, spacing: 20) {
@@ -49,6 +53,9 @@ struct ModelManagementView: View {
             // User Model Directories
             userDirectoriesSection
             
+            // Cache Management Section
+            cacheManagementSection
+            
             Spacer()
         }
         .padding()
@@ -57,6 +64,14 @@ struct ModelManagementView: View {
         }
         .sheet(item: $showingModelDetails) { model in
             ModelDetailsView(model: model)
+        }
+        .alert("Cache Management", isPresented: $showingCacheAlert) {
+            Button("OK") { }
+        } message: {
+            Text(cacheAlertMessage)
+        }
+        .onAppear {
+            loadCacheStatus()
         }
     }
     
@@ -203,6 +218,149 @@ struct ModelManagementView: View {
         }
     }
     
+    // MARK: - Cache Management Section
+    
+    private var cacheManagementSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Text("Cache Management")
+                    .font(.subheadline)
+                    .fontWeight(.medium)
+                
+                Spacer()
+                
+                Button("Refresh Status") {
+                    loadCacheStatus()
+                }
+                .buttonStyle(.bordered)
+                .controlSize(.small)
+            }
+            
+            if let status = cacheStatus {
+                VStack(spacing: 12) {
+                    // Cache status overview
+                    HStack {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("Total Cache Size")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                            Text(status.formattedSize)
+                                .font(.subheadline)
+                                .fontWeight(.medium)
+                        }
+                        
+                        Spacer()
+                        
+                        VStack(alignment: .trailing, spacing: 4) {
+                            Text("Cached Models")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                            Text("\(status.modelCount)")
+                                .font(.subheadline)
+                                .fontWeight(.medium)
+                        }
+                    }
+                    .padding()
+                    .background(
+                        RoundedRectangle(cornerRadius: 8)
+                            .fill(Color(NSColor.controlBackgroundColor))
+                    )
+                    
+                    // Corrupted files warning
+                    if !status.corruptedFiles.isEmpty {
+                        HStack {
+                            Image(systemName: "exclamationmark.triangle.fill")
+                                .foregroundColor(.orange)
+                            
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("Corrupted Files Detected")
+                                    .font(.subheadline)
+                                    .fontWeight(.medium)
+                                Text("\(status.corruptedFiles.count) incomplete or corrupted files found")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                            }
+                            
+                            Spacer()
+                            
+                            Button("Clean Up") {
+                                cleanupCorruptedFiles()
+                            }
+                            .buttonStyle(.borderedProminent)
+                            .controlSize(.small)
+                            .disabled(isCleaningCache)
+                        }
+                        .padding()
+                        .background(
+                            RoundedRectangle(cornerRadius: 8)
+                                .fill(Color.orange.opacity(0.1))
+                        )
+                    }
+                    
+                    // Cache actions
+                    HStack {
+                        Button("Clean Corrupted Files") {
+                            cleanupCorruptedFiles()
+                        }
+                        .buttonStyle(.bordered)
+                        .disabled(isCleaningCache)
+                        
+                        Button("Full Cache Reset") {
+                            performFullCacheReset()
+                        }
+                        .buttonStyle(.bordered)
+                        .foregroundColor(.red)
+                        .disabled(isCleaningCache)
+                        
+                        Spacer()
+                        
+                        if isCleaningCache {
+                            ProgressView()
+                                .controlSize(.small)
+                            Text("Cleaning...")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
+                    }
+                    
+                    // Cache directories info
+                    if !status.cacheDirectories.isEmpty {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("Cache Locations")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                            
+                            ForEach(status.cacheDirectories, id: \.self) { directory in
+                                Text(directory)
+                                    .font(.caption2)
+                                    .foregroundColor(.secondary)
+                                    .textSelection(.enabled)
+                            }
+                        }
+                        .padding()
+                        .background(
+                            RoundedRectangle(cornerRadius: 8)
+                                .fill(Color(NSColor.controlBackgroundColor).opacity(0.5))
+                        )
+                    }
+                }
+            } else {
+                HStack {
+                    ProgressView()
+                        .controlSize(.small)
+                    Text("Loading cache status...")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+                .padding()
+                .background(
+                    RoundedRectangle(cornerRadius: 8)
+                        .fill(Color(NSColor.controlBackgroundColor))
+                )
+            }
+        }
+    }
+    
     // MARK: - Directory Picker Sheet
     
     private var directoryPickerSheet: some View {
@@ -269,6 +427,75 @@ struct ModelManagementView: View {
     private func removeDirectory(_ path: String) {
         Task {
             await localProvider.removeUserModelDirectory(path)
+        }
+    }
+    
+    // MARK: - Cache Management Actions
+    
+    private func loadCacheStatus() {
+        Task {
+            let status = await MLXCacheManager.shared.getCacheStatus()
+            
+            await MainActor.run {
+                self.cacheStatus = status
+            }
+        }
+    }
+    
+    private func cleanupCorruptedFiles() {
+        isCleaningCache = true
+        
+        Task {
+            do {
+                try await MLXCacheManager.shared.performFullCacheCleanup()
+                
+                await MainActor.run {
+                    self.cacheAlertMessage = "Successfully cleaned up corrupted cache files."
+                    self.showingCacheAlert = true
+                    self.isCleaningCache = false
+                }
+                
+                // Refresh cache status
+                loadCacheStatus()
+                
+            } catch {
+                await MainActor.run {
+                    self.cacheAlertMessage = "Failed to clean cache: \(error.localizedDescription)"
+                    self.showingCacheAlert = true
+                    self.isCleaningCache = false
+                }
+            }
+        }
+    }
+    
+    private func performFullCacheReset() {
+        isCleaningCache = true
+        
+        Task {
+            do {
+                // Clear all MLX caches
+                try await MLXCacheManager.shared.performFullCacheCleanup()
+                
+                // Also clear SimplifiedMLXRunner model
+                await SimplifiedMLXRunner.shared.clearModel()
+                
+                await MainActor.run {
+                    self.cacheAlertMessage = "Cache has been completely reset. The app will re-download models as needed."
+                    self.showingCacheAlert = true
+                    self.isCleaningCache = false
+                    self.cacheStatus = nil
+                }
+                
+                // Refresh cache status
+                loadCacheStatus()
+                
+            } catch {
+                await MainActor.run {
+                    self.cacheAlertMessage = "Failed to reset cache: \(error.localizedDescription)"
+                    self.showingCacheAlert = true
+                    self.isCleaningCache = false
+                }
+            }
         }
     }
 }

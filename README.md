@@ -40,6 +40,8 @@ https://github.com/user-attachments/assets/85629abc-5527-4345-b1a8-a988e0417c0a
 - **Local AI Models**: On-device AI powered by [Apple MLX](https://github.com/ml-explore/mlx) and [MLX Swift Examples](https://github.com/ml-explore/mlx-swift-examples)
 - **MLX Framework**: Apple Silicon optimized inference
 - **Privacy-First**: AI processing happens locally on device
+- **Smart Initialization**: Intelligent startup that recognizes existing downloads and avoids conflicts
+- **Manual Download Support**: Seamless coordination with manual download processes
 - **Smart Assistance**: Integrated AI sidebar for web content analysis with TL;DR and page + history context. (Still rough with bugs, but nice to play and have fun)
 
 ## Requirements
@@ -63,7 +65,12 @@ cd AI-Web-Browser
 open Web.xcodeproj
 ```
 
-3. Build and run (⌘R)
+3. **Recommended**: Run the manual model download script to avoid AI initialization issues:
+   ```bash
+   ./scripts/manual_model_download.sh
+   ```
+
+4. Build and run (⌘R)
 
 ## Architecture
 
@@ -92,9 +99,41 @@ Web/
 Web integrates local AI capabilities using Apple's MLX framework and Swift examples:
 
 - **Framework**: [Apple MLX](https://github.com/ml-explore/mlx) with [MLX Swift Examples](https://github.com/ml-explore/mlx-swift-examples)
-- **Models**: Gemma and other compatible models
+- **Models**: Gemma 2 2B (4-bit quantized) and other compatible models
 - **Inference**: MLX-optimized for Apple Silicon
 - **Privacy**: All AI processing happens locally
+- **Auto-Download**: Models are automatically downloaded on first use
+- **Recovery**: Automatic error recovery with manual fallback options
+
+### Model Download Issues
+
+The app now includes **intelligent AI initialization** that coordinates with manual downloads:
+
+**Smart Startup Behavior**:
+- **Recognizes Existing Models**: Instantly loads pre-downloaded models without re-downloading
+- **Manual Download Coordination**: Detects and waits for active manual download processes
+- **Conflict Prevention**: Avoids cache interference during manual downloads
+- **Graceful Fallback**: Automatically downloads if no manual process is detected
+
+**Manual Download Option** (when needed):
+```bash
+./scripts/manual_model_download.sh
+```
+
+**Debug Information**: The manual download script now includes comprehensive debug messages that track:
+- Script execution flow and location tracking
+- File download progress and verification
+- Cache directory operations and cleanup
+- Error conditions and recovery attempts
+- Process coordination and timing information
+
+**Enhanced Features**:
+- **Intelligent Detection**: Recognizes existing valid downloads automatically
+- **Process Coordination**: Waits for manual downloads to complete before proceeding
+- **Automatic Recovery**: Detects and fixes corrupted downloads automatically
+- **Cache Management**: Built-in cache cleanup and validation tools
+- **Troubleshooting**: See [docs/Troubleshooting.md](docs/Troubleshooting.md) for detailed recovery steps</search>
+</search_and_replace>
 
 ### Code Standards
 
@@ -110,6 +149,33 @@ Web integrates local AI capabilities using Apple's MLX framework and Swift examp
 3. Commit your changes (`git commit -m 'Add amazing feature'`)
 4. Push to the branch (`git push origin feature/amazing-feature`)
 5. Open a Pull Request
+
+## Troubleshooting
+
+### MLX Model Download Issues
+
+If you encounter AI initialization errors:
+
+1. **Automatic Recovery**: The app will attempt to fix corrupted downloads automatically
+2. **Manual Recovery**: If automatic recovery fails, run:
+   ```bash
+   ./scripts/manual_model_download.sh
+   ```
+3. **Debug Output**: The manual download script provides detailed debug messages showing:
+   - Script execution progress and current location
+   - File download attempts and success/failure status
+   - Cache directory creation and cleanup operations
+   - Error conditions with specific failure points
+   - Process coordination and timing information
+4. **Cache Management**: Use Settings > Model Management to view and clean cache
+5. **Full Documentation**: See [docs/Troubleshooting.md](docs/Troubleshooting.md) for complete recovery steps
+
+### Common Issues
+
+- **"MLX model tokenizer corrupted"**: Run the manual download script
+- **"Automatic recovery failed"**: Clear cache manually and restart app
+- **Network issues**: Check firewall settings for Hugging Face access
+- **Disk space**: Ensure 5GB+ free space for model downloads
 
 ## Keyboard Shortcuts
 

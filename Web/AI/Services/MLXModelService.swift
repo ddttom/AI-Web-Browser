@@ -93,12 +93,12 @@ class MLXModelService: ObservableObject {
             currentModel = MLXModelConfiguration.gemma3_2B_4bit
         }
 
-        // Immediately check for existing model on initialization
+        // Smart startup initialization - check for existing models and manual downloads
         Task {
-            await performIntelligentModelCheck()
+            await performSmartStartupInitialization()
         }
 
-        AppLog.debug("MLXModelService init - checking for existing MLX AI model…")
+        AppLog.debug("MLXModelService init - performing smart startup initialization…")
     }
 
     deinit {
@@ -108,18 +108,18 @@ class MLXModelService: ObservableObject {
     // MARK: - Public Interface
 
     /// Intelligent check: returns true if model is ready, false if download needed
+    @MainActor
     func isAIReady() async -> Bool {
-        return await MainActor.run { isModelReady && downloadState == .ready }
+        return isModelReady && downloadState == .ready
     }
 
     /// Get model configuration (replaces getModelPath for MLX compatibility)
+    @MainActor
     func getModelConfiguration() async -> MLXModelConfiguration? {
-        return await MainActor.run {
-            guard isModelReady else {
-                return nil
-            }
-            return currentModel
+        guard isModelReady else {
+            return nil
         }
+        return currentModel
     }
 
     /// Compatibility method for existing code (returns nil since MLX doesn't use file paths)
@@ -145,27 +145,54 @@ class MLXModelService: ObservableObject {
             return
         }
 
-        // Start download/loading process
-        try await downloadModelIfNeeded()
+        // Start download/loading process with enhanced error handling
+        do {
+            try await downloadModelIfNeeded()
+        } catch {
+            // Check if this is a recoverable tokenizer corruption error
+            if error.localizedDescription.contains("tokenizer") || error.localizedDescription.contains("corrupted") {
+                AppLog.debug("Detected tokenizer corruption during initialization, attempting recovery...")
+                
+                let modelConfig = await MainActor.run { currentModel }
+                guard let model = modelConfig else {
+                    throw MLXModelError.noModelConfiguration
+                }
+                
+                // Perform aggressive cleanup and retry
+                try await MLXCacheManager.shared.cleanupCorruptedCache(for: model.modelId)
+                await SimplifiedMLXRunner.shared.clearModel()
+                
+                // Reset state and retry once
+                await MainActor.run(resultType: Void.self) {
+                    self.downloadState = .downloading
+                    self.downloadProgress = 0.0
+                }
+                
+                try await downloadModelIfNeeded()
+                AppLog.debug("MLX model recovery during initialization successful")
+            } else {
+                // Re-throw non-recoverable errors
+                throw error
+            }
+        }
     }
 
     /// Get download information for UI
+    @MainActor
     func getDownloadInfo() async -> DownloadInfo {
-        return await MainActor.run {
-            guard let model = currentModel else {
-                return DownloadInfo(
-                    modelName: "Unknown Model",
-                    sizeGB: 0.0,
-                    isDownloadNeeded: true
-                )
-            }
-
+        guard let model = currentModel else {
             return DownloadInfo(
-                modelName: model.name,
-                sizeGB: model.estimatedSizeGB,
-                isDownloadNeeded: !isModelReady || downloadState != .ready
+                modelName: "Unknown Model",
+                sizeGB: 0.0,
+                isDownloadNeeded: true
             )
         }
+
+        return DownloadInfo(
+            modelName: model.name,
+            sizeGB: model.estimatedSizeGB,
+            isDownloadNeeded: !isModelReady || downloadState != .ready
+        )
     }
 
     /// Cancel ongoing download
@@ -205,6 +232,116 @@ class MLXModelService: ObservableObject {
 
     // MARK: - Private Methods
 
+    /// Smart startup initialization that respects manual downloads and existing models
+    @MainActor
+    private func performSmartStartupInitialization() async {
+        guard let model = currentModel else {
+            downloadState = .failed("No model configuration available")
+            return
+        }
+
+        AppLog.debug("Smart startup initialization for model: \(model.name)")
+        downloadState = .checking
+
+        // Step 1: Check if manual download is currently active
+        if await MLXCacheManager.shared.isManualDownloadActive() {
+            AppLog.debug("Manual download detected - waiting for completion...")
+            downloadState = .downloading
+            downloadProgress = 0.0
+            
+            // Wait for manual download to complete
+            await waitForManualDownloadCompletion(model: model)
+            return
+        }
+
+        // Step 2: Quick check for complete model files (without full validation)
+        if await MLXCacheManager.shared.hasCompleteModelFiles(for: model.modelId) {
+            AppLog.debug("Complete model files detected - attempting to load existing model")
+            
+            do {
+                // Try to load the existing model without triggering downloads
+                downloadState = .downloading
+                downloadProgress = 0.5  // Start at 50% since files exist
+                
+                try await SimplifiedMLXRunner.shared.ensureLoaded(modelId: model.modelId)
+                
+                isModelReady = true
+                downloadState = .ready
+                downloadProgress = 1.0
+                
+                AppLog.debug("Successfully loaded existing model: \(model.name)")
+                return
+                
+            } catch {
+                AppLog.debug("Failed to load existing model, will need fresh download: \(error.localizedDescription)")
+                // Fall through to standard initialization
+            }
+        }
+
+        // Step 3: No existing model found, proceed with standard initialization
+        AppLog.debug("No existing model found - proceeding with standard initialization")
+        await performIntelligentModelCheck()
+    }
+
+    /// Wait for manual download completion with monitoring
+    @MainActor
+    private func waitForManualDownloadCompletion(model: MLXModelConfiguration) async {
+        let maxWaitTime: TimeInterval = 300  // 5 minutes maximum wait
+        let checkInterval: TimeInterval = 5   // Check every 5 seconds
+        let startTime = Date()
+        
+        while Date().timeIntervalSince(startTime) < maxWaitTime {
+            // Check if manual download is still active
+            if !(await MLXCacheManager.shared.isManualDownloadActive()) {
+                AppLog.debug("Manual download completed - checking for model files")
+                
+                // Give a moment for file system to settle
+                try? await Task.sleep(nanoseconds: 2_000_000_000)  // 2 seconds
+                
+                // Check if model files are now available
+                if await MLXCacheManager.shared.hasCompleteModelFiles(for: model.modelId) {
+                    AppLog.debug("Manual download successful - loading model")
+                    
+                    do {
+                        downloadState = .downloading
+                        downloadProgress = 0.8  // Start high since files exist
+                        
+                        try await SimplifiedMLXRunner.shared.ensureLoaded(modelId: model.modelId)
+                        
+                        isModelReady = true
+                        downloadState = .ready
+                        downloadProgress = 1.0
+                        
+                        AppLog.debug("Successfully loaded manually downloaded model: \(model.name)")
+                        return
+                        
+                    } catch {
+                        AppLog.error("Failed to load manually downloaded model: \(error.localizedDescription)")
+                        downloadState = .failed("Manual download completed but model loading failed: \(error.localizedDescription)")
+                        return
+                    }
+                } else {
+                    AppLog.debug("Manual download completed but model files not found - proceeding with automatic download")
+                    await performIntelligentModelCheck()
+                    return
+                }
+            }
+            
+            // Update progress to show we're waiting
+            let elapsed = Date().timeIntervalSince(startTime)
+            downloadProgress = min(0.9, elapsed / maxWaitTime)  // Progress up to 90% while waiting
+            
+            // Wait before next check
+            try? await Task.sleep(nanoseconds: UInt64(checkInterval * 1_000_000_000))
+        }
+        
+        // Timeout reached
+        AppLog.debug("Timeout waiting for manual download - proceeding with automatic initialization")
+        downloadState = .downloading
+        downloadProgress = 0.0
+        await performIntelligentModelCheck()
+    }
+
     /// Intelligent model detection and validation
     @MainActor
     private func performIntelligentModelCheck() async {
@@ -220,7 +357,28 @@ class MLXModelService: ObservableObject {
         }
 
         do {
-            // Try to ensure the model is loaded - this will trigger MLX to download if needed
+            // First, check if model files already exist and are valid
+            let isValid = await MLXCacheManager.shared.validateModelFiles(for: model.modelId)
+            if isValid {
+                AppLog.debug("Found valid cached model files for: \(model.name)")
+                
+                // Try to load the existing model
+                downloadState = .downloading
+                downloadProgress = 0.5  // Start at 50% since files exist
+                
+                try await SimplifiedMLXRunner.shared.ensureLoaded(modelId: model.modelId)
+                
+                isModelReady = true
+                downloadState = .ready
+                downloadProgress = 1.0
+                
+                AppLog.debug("MLX model loaded from cache: \(model.name)")
+                return
+            }
+            
+            AppLog.debug("No valid cached model found, initiating download: \(model.name)")
+            
+            // No valid model found, need to download
             downloadState = .downloading
             downloadProgress = 0.0
 
@@ -240,23 +398,83 @@ class MLXModelService: ObservableObject {
                 }
             }
 
+            // Clean up any corrupted cache before attempting download
+            do {
+                try await MLXCacheManager.shared.cleanupCorruptedCache(for: model.modelId)
+            } catch {
+                AppLog.debug("Cache cleanup had issues but continuing: \(error.localizedDescription)")
+                // Don't fail the download attempt just because cleanup had issues
+            }
+            
             try await SimplifiedMLXRunner.shared.ensureLoaded(modelId: model.modelId)
 
             progressTask.cancel()
+            
+            // Validate the downloaded model
+            let downloadedIsValid = await MLXCacheManager.shared.validateModelFiles(for: model.modelId)
+            if !downloadedIsValid {
+                throw MLXModelError.validationFailed("Downloaded model files are incomplete or corrupted")
+            }
 
             // If we got here, the model is ready
             isModelReady = true
             downloadState = .ready
             downloadProgress = 1.0
 
-            AppLog.debug("MLX model validated and ready: \(model.name)")
+            AppLog.debug("MLX model downloaded and validated: \(model.name)")
 
         } catch {
-            downloadState = .failed(error.localizedDescription)
-            isModelReady = false
-            downloadProgress = 0.0
-
             AppLog.error("MLX model check failed: \(error.localizedDescription)")
+            
+            // Check if this is a tokenizer corruption error that we can recover from
+            if error.localizedDescription.contains("tokenizer") || error.localizedDescription.contains("corrupted") {
+                AppLog.debug("Detected tokenizer corruption, attempting automatic recovery...")
+                
+                // Perform aggressive cleanup
+                do {
+                    try await MLXCacheManager.shared.cleanupCorruptedCache(for: model.modelId)
+                    AppLog.debug("Cache cleanup completed, attempting retry...")
+                    
+                    // Clear the MLX runner's model state
+                    await SimplifiedMLXRunner.shared.clearModel()
+                    
+                    // Retry the download once more
+                    downloadState = .downloading
+                    downloadProgress = 0.0
+                    
+                    try await SimplifiedMLXRunner.shared.ensureLoaded(modelId: model.modelId)
+                    
+                    // Validate the retry attempt
+                    let retryIsValid = await MLXCacheManager.shared.validateModelFiles(for: model.modelId)
+                    if retryIsValid {
+                        isModelReady = true
+                        downloadState = .ready
+                        downloadProgress = 1.0
+                        AppLog.debug("MLX model recovery successful: \(model.name)")
+                        return
+                    } else {
+                        throw MLXModelError.validationFailed("Model recovery failed - files still corrupted after cleanup")
+                    }
+                    
+                } catch {
+                    AppLog.error("MLX model recovery failed: \(error.localizedDescription)")
+                    downloadState = .failed("Automatic recovery failed: \(error.localizedDescription). Please try manual cache cleanup in Settings.")
+                    isModelReady = false
+                    downloadProgress = 0.0
+                }
+            } else {
+                // Non-recoverable error
+                downloadState = .failed(error.localizedDescription)
+                isModelReady = false
+                downloadProgress = 0.0
+                
+                // Still try to clean up any corrupted files
+                do {
+                    try await MLXCacheManager.shared.cleanupCorruptedCache(for: model.modelId)
+                } catch {
+                    AppLog.error("Failed to cleanup after model check failure: \(error.localizedDescription)")
+                }
+            }
         }
     }
 
@@ -278,49 +496,111 @@ class MLXModelService: ObservableObject {
             AppLog.debug("One-time download; future launches will be instant")
         }
 
-        do {
-            // Connect to SimplifiedMLXRunner progress updates
-            downloadTask = Task {
-                // Monitor SimplifiedMLXRunner's loadProgress
-                while !Task.isCancelled {
-                    let progress = SimplifiedMLXRunner.shared.loadProgress
-                    await MainActor.run {
-                        self.downloadProgress = Double(progress)
-                    }
-
-                    // Check if loading is complete
-                    if progress >= 1.0 {
-                        break
-                    }
-
-                    try await Task.sleep(nanoseconds: 100_000_000)  // Check every 0.1 seconds
+        // Enhanced download with retry logic and cache cleanup
+        let maxRetries = 3
+        var lastError: Error?
+        
+        for attempt in 1...maxRetries {
+            do {
+                AppLog.debug("Download attempt \(attempt) of \(maxRetries) for model: \(model.name)")
+                
+                // Clean up any corrupted cache before attempting download
+                do {
+                    try await MLXCacheManager.shared.cleanupCorruptedCache(for: model.modelId)
+                } catch {
+                    AppLog.debug("Cache cleanup had issues but continuing: \(error.localizedDescription)")
+                    // Don't fail the download attempt just because cleanup had issues
+                }
+                
+                // Attempt download with enhanced error handling
+                try await performDownloadWithValidation(model: model)
+                
+                // If we get here, download was successful
+                isModelReady = true
+                downloadState = .ready
+                downloadProgress = 1.0
+                
+                AppLog.debug("MLX AI model download completed successfully on attempt \(attempt)")
+                return
+                
+            } catch {
+                lastError = error
+                AppLog.error("Download attempt \(attempt) failed: \(error.localizedDescription)")
+                
+                // Cancel any ongoing progress monitoring
+                downloadTask?.cancel()
+                downloadTask = nil
+                
+                // Clean up failed download artifacts
+                do {
+                    try await MLXCacheManager.shared.cleanupCorruptedCache(for: model.modelId)
+                } catch {
+                    AppLog.error("Failed to cleanup after download failure: \(error.localizedDescription)")
+                }
+                
+                if attempt < maxRetries {
+                    // Exponential backoff: 2^attempt seconds
+                    let delay = pow(2.0, Double(attempt))
+                    AppLog.debug("Retrying download in \(delay) seconds...")
+                    
+                    downloadState = .downloading
+                    downloadProgress = 0.0
+                    
+                    try await Task.sleep(nanoseconds: UInt64(delay * 1_000_000_000))
+                } else {
+                    // Final failure
+                    downloadState = .failed("Failed after \(maxRetries) attempts: \(error.localizedDescription)")
+                    isModelReady = false
+                    downloadProgress = 0.0
                 }
             }
-
-            // Start the actual model loading - this will update loadProgress automatically
-            try await SimplifiedMLXRunner.shared.ensureLoaded(modelId: model.modelId)
-
-            // Cancel the progress monitoring
-            downloadTask?.cancel()
-            downloadTask = nil
-
-            isModelReady = true
-            downloadState = .ready
-            downloadProgress = 1.0
-
-            AppLog.debug("MLX AI model download completed successfully; AI ready")
-
-        } catch {
-            downloadTask?.cancel()
-            downloadTask = nil
-
-            downloadState = .failed(error.localizedDescription)
-            isModelReady = false
-            downloadProgress = 0.0
-
-            AppLog.error("MLX AI model download failed: \(error.localizedDescription)")
-            throw error
         }
+        
+        // If we get here, all retries failed
+        let finalError = MLXModelError.downloadFailed("Download failed after \(maxRetries) attempts. Last error: \(lastError?.localizedDescription ?? "Unknown error")")
+        AppLog.error("MLX AI model download failed permanently: \(finalError.localizedDescription)")
+        throw finalError
+    }
+    
+    /// Perform download with validation and progress monitoring
+    @MainActor
+    private func performDownloadWithValidation(model: MLXModelConfiguration) async throws {
+        // Validate cache state before download
+        let cacheStatus = await MLXCacheManager.shared.getCacheStatus()
+        AppLog.debug("Cache status before download: \(cacheStatus.formattedSize), \(cacheStatus.modelCount) models")
+        
+        // Connect to SimplifiedMLXRunner progress updates
+        downloadTask = Task {
+            // Monitor SimplifiedMLXRunner's loadProgress
+            while !Task.isCancelled {
+                let progress = SimplifiedMLXRunner.shared.loadProgress
+                await MainActor.run {
+                    self.downloadProgress = Double(progress)
+                }
+
+                // Check if loading is complete
+                if progress >= 1.0 {
+                    break
+                }
+
+                try await Task.sleep(nanoseconds: 100_000_000)  // Check every 0.1 seconds
+            }
+        }
+
+        // Start the actual model loading - this will update loadProgress automatically
+        try await SimplifiedMLXRunner.shared.ensureLoaded(modelId: model.modelId)
+
+        // Cancel the progress monitoring
+        downloadTask?.cancel()
+        downloadTask = nil
+        
+        // Validate the downloaded model
+        let isValid = await MLXCacheManager.shared.validateModelFiles(for: model.modelId)
+        if !isValid {
+            throw MLXModelError.validationFailed("Downloaded model files are incomplete or corrupted")
+        }
+        
+        AppLog.debug("Model download and validation completed successfully")
     }
 }
 

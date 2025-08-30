@@ -70,7 +70,10 @@ final class SimplifiedMLXRunner: ObservableObject {
                 modelConfig = ModelConfiguration(id: modelId)
             }
 
-            // AI THREADING FIX: Model loading with proper thread management
+            // Enhanced error handling with detailed logging
+            AppLog.debug("Starting model load for configuration: \(modelConfig.id)")
+
+            // AI THREADING FIX: Model loading with proper thread management and enhanced error handling
             let model = try await LLMModelFactory.shared.loadContainer(
                 configuration: modelConfig
             ) { progress in
@@ -95,9 +98,32 @@ final class SimplifiedMLXRunner: ObservableObject {
             }
 
             AppLog.debug("MLX model loaded successfully: \(modelId)")
+
         } catch {
             AppLog.error("Failed to load MLX model: \(error.localizedDescription)")
-            throw error
+
+            // Enhanced error reporting with specific guidance
+            let enhancedError: Error
+            if error.localizedDescription.contains("couldn't be moved") {
+                enhancedError = SimplifiedMLXError.downloadCorrupted(
+                    "Model download was interrupted. The cache will be cleaned up automatically on next attempt. "
+                        + "Please check your network connection and try again."
+                )
+            } else if error.localizedDescription.contains("config.json") {
+                enhancedError = SimplifiedMLXError.configurationMissing(
+                    "Model configuration files are missing or corrupted. "
+                        + "The app will attempt to re-download the model automatically."
+                )
+            } else if error.localizedDescription.contains("tokenizer") {
+                enhancedError = SimplifiedMLXError.tokenizerCorrupted(
+                    "Model tokenizer files are corrupted. "
+                        + "This usually happens due to interrupted downloads. The cache will be cleaned up automatically."
+                )
+            } else {
+                enhancedError = SimplifiedMLXError.generationFailed(error.localizedDescription)
+            }
+
+            throw enhancedError
         }
     }
 
@@ -113,19 +139,10 @@ final class SimplifiedMLXRunner: ObservableObject {
         }
 
         // AI THREADING FIX: Run MLX inference on background thread
-        return try await withCheckedThrowingContinuation { continuation in
-            aiProcessingQueue.async {
-                Task {
-                    do {
-                        let result = try await self.performMLXInference(
-                            context: context, prompt: prompt)
-                        continuation.resume(returning: result)
-                    } catch {
-                        continuation.resume(throwing: error)
-                    }
-                }
-            }
-        }
+        // Use Task.detached to avoid Sendable requirements and run on background thread
+        return try await Task.detached(priority: .userInitiated) {
+            try await self.performMLXInference(context: context, prompt: prompt)
+        }.value
     }
 
     /// Performs the actual MLX inference on background thread
@@ -155,7 +172,7 @@ final class SimplifiedMLXRunner: ObservableObject {
                 let repetitionDetectionWindow = 10
 
                 NSLog(
-                    "🔍 MLX DEBUG: Starting generation with maxTokens=\(parameters.maxTokens), temp=\(parameters.temperature)"
+                    "🔍 MLX DEBUG: Starting generation with maxTokens=\(parameters.maxTokens ?? 0), temp=\(parameters.temperature)"
                 )
                 let _ = try MLXLMCommon.generate(
                     input: input,
@@ -210,7 +227,9 @@ final class SimplifiedMLXRunner: ObservableObject {
                         let lastFiveTokens = Array(tokens.suffix(5))
                         let uniqueTokens = Set(lastFiveTokens)
                         if uniqueTokens.count == 1 {
-                            NSLog("🛑 Stopping: same token repeated 5 times: \(uniqueTokens.first!)")
+                            NSLog(
+                                "🛑 Stopping: same token repeated 5 times: \(uniqueTokens.first ?? -1)"
+                            )
                             return .stop
                         }
                     }
@@ -350,7 +369,7 @@ final class SimplifiedMLXRunner: ObservableObject {
                                     let uniqueTokens = Set(lastFiveTokens)
                                     if uniqueTokens.count == 1 {
                                         NSLog(
-                                            "🛑 Stopping streaming: same token repeated 5 times: \(uniqueTokens.first!)"
+                                            "🛑 Stopping streaming: same token repeated 5 times: \(uniqueTokens.first ?? -1)"
                                         )
                                         return .stop
                                     }
@@ -424,27 +443,21 @@ final class SimplifiedMLXRunner: ObservableObject {
             return
         }
 
-        // AI THREADING FIX: Run reset on background thread
-        await withCheckedContinuation { continuation in
-            aiProcessingQueue.async {
-                Task {
-                    // MLX conversation reset: clearing model state
+        // AI THREADING FIX: Run reset on main actor to avoid Sendable issues
+        await MainActor.run {
+            // MLX conversation reset: clearing model state
 
-                    // Clear current model state
-                    self.modelContainer = nil
+            // Clear current model state
+            self.modelContainer = nil
+        }
 
-                    // Reload the model to reset its internal conversation state
-                    do {
-                        try await self.ensureLoaded(modelId: currentModelId)
-                        // MLX conversation reset completed successfully
-                        NSLog("🔄 MLX conversation reset completed successfully")
-                    } catch {
-                        NSLog("❌ MLX conversation reset failed: \(error)")
-                    }
-
-                    continuation.resume()
-                }
-            }
+        // Reload the model to reset its internal conversation state
+        do {
+            try await self.ensureLoaded(modelId: currentModelId)
+            // MLX conversation reset completed successfully
+            NSLog("🔄 MLX conversation reset completed successfully")
+        } catch {
+            NSLog("❌ MLX conversation reset failed: \(error)")
         }
     }
 
@@ -460,6 +473,9 @@ final class SimplifiedMLXRunner: ObservableObject {
 enum SimplifiedMLXError: LocalizedError {
     case modelNotLoaded
     case generationFailed(String)
+    case downloadCorrupted(String)
+    case configurationMissing(String)
+    case tokenizerCorrupted(String)
 
     var errorDescription: String? {
         switch self {
@@ -467,6 +483,12 @@ enum SimplifiedMLXError: LocalizedError {
             return "MLX model not loaded"
         case .generationFailed(let message):
             return "MLX generation failed: \(message)"
+        case .downloadCorrupted(let message):
+            return "MLX model download corrupted: \(message)"
+        case .configurationMissing(let message):
+            return "MLX model configuration missing: \(message)"
+        case .tokenizerCorrupted(let message):
+            return "MLX model tokenizer corrupted: \(message)"
         }
     }
 }
