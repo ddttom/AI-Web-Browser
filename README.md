@@ -54,8 +54,8 @@ https://github.com/user-attachments/assets/85629abc-5527-4345-b1a8-a988e0417c0a
 
 1. Clone the repository:
 ```bash
-git clone https://github.com/nuance-dev/Web.git
-cd Web
+git clone https://github.com/ddttom/AI-Web-Browser.git
+cd AI-Web-Browser
 ```
 
 2. Open the project in Xcode:
@@ -149,6 +149,6 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 ## 🔗 Links
 
 - Website: [Nuanc.me](https://nuanc.me)
-- Report issues: [GitHub Issues](https://github.com/nuance-dev/Web/issues)
+- Report issues: [GitHub Issues](https://github.com/ddttom/AI-Web-Browser/issues)
 - Follow updates: [@Nuanced](https://x.com/Nuancedev)
 - [Buy me a coffee](https://buymeacoffee.com/nuanced)
