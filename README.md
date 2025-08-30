@@ -67,7 +67,7 @@ open Web.xcodeproj
 
 ## Architecture
 
-Web follows MVVM architecture with SwiftUI and Combine:
+Web follows MVVM architecture with SwiftUI and Combine. For detailed architecture documentation, see [Architecture.md](docs/Architecture.md).
 
 ```
 Web/
