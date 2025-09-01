@@ -270,7 +270,7 @@ class MLXModelService: ObservableObject {
             await waitForManualDownloadCompletion(model: model)
             return
         } else {
-            AppLog.debug("🚀 [SMART INIT] ✅ No manual download active - proceeding with file check")
+            AppLog.debug("🚀 [SMART INIT] ✅ No manual download active - proceeding to Step 2")
         }
 
         // Step 2: Check for complete model files using the proper model configuration

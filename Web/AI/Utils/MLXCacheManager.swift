@@ -61,49 +61,46 @@ class MLXCacheManager {
 
     /// Check if a manual download process is currently active
     func isManualDownloadActive() async -> Bool {
+        AppLog.debug("🚀 [SMART INIT] Checking for manual download activity...")
+        
         // Check for manual download lock file first (most reliable)
         let homeDir = fileManager.homeDirectoryForCurrentUser
         let lockFile = homeDir.appendingPathComponent(
             ".cache/huggingface/hub/models--mlx-community--gemma-2-2b-it-4bit/.manual_download_lock"
         )
 
+        AppLog.debug("🚀 [SMART INIT] Checking for lock file at: \(lockFile.path)")
         if fileManager.fileExists(atPath: lockFile.path) {
-            AppLog.debug("Manual download lock file detected - deferring automatic initialization")
+            AppLog.debug("🚀 [SMART INIT] ✅ Manual download lock file detected - deferring automatic initialization")
             return true
         }
+        AppLog.debug("🚀 [SMART INIT] ❌ No lock file found")
 
-        // Also check for running manual download script processes
-        let task = Process()
-        task.launchPath = "/bin/ps"
-        task.arguments = ["aux"]
-
-        let pipe = Pipe()
-        task.standardOutput = pipe
-
+        // Simplified process check to prevent hanging
+        AppLog.debug("🚀 [SMART INIT] Performing simplified process check...")
         do {
+            let task = Process()
+            task.launchPath = "/usr/bin/pgrep"
+            task.arguments = ["-f", "manual_model_download"]
+            
+            let pipe = Pipe()
+            task.standardOutput = pipe
+            task.standardError = Pipe() // Capture stderr to prevent output
+            
             try task.run()
             task.waitUntilExit()
-
-            let data = pipe.fileHandleForReading.readDataToEndOfFile()
-            let output = String(data: data, encoding: .utf8) ?? ""
-
-            // Check for manual download script or curl processes downloading model files
-            let isScriptRunning = output.contains("manual_model_download.sh")
-            let isCurlDownloading =
-                output.contains("curl") && output.contains("huggingface.co")
-                && output.contains("gemma")
-
-            if isScriptRunning || isCurlDownloading {
-                AppLog.debug(
-                    "Manual download process detected via process scan - deferring automatic initialization"
-                )
+            
+            if task.terminationStatus == 0 {
+                AppLog.debug("🚀 [SMART INIT] ✅ Manual download script detected via pgrep - deferring initialization")
                 return true
+            } else {
+                AppLog.debug("🚀 [SMART INIT] ❌ No manual download script processes found")
             }
         } catch {
-            AppLog.debug(
-                "Could not check for manual download processes: \(error.localizedDescription)")
+            AppLog.debug("🚀 [SMART INIT] ❌ Could not check processes: \(error.localizedDescription)")
         }
-
+        
+        AppLog.debug("🚀 [SMART INIT] ✅ No manual download activity detected - proceeding with app initialization")
         return false
     }
 
