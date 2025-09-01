@@ -547,7 +547,7 @@ class AIAssistant: ObservableObject {
     /// Runs a multi-step, model-directed loop: model observes, decides a tool, we execute, feed results back, repeat.
     /// This uses ToolRegistry semantics and avoids site-specific assumptions. Stops on explicit done, maxSteps, or no-op.
     func runAgentLoop(_ instruction: String, maxSteps: Int = 12) async {
-        guard await isInitialized else { return }
+        guard isInitialized else { return }
         let start = Date()
         let (maybeWebView, host) = await MainActor.run { () -> (WKWebView?, String?) in
             (self.tabManager?.activeTab?.webView, self.tabManager?.activeTab?.url?.host)
@@ -1570,7 +1570,7 @@ class AIAssistant: ObservableObject {
     func processQuery(_ query: String, includeContext: Bool = true, includeHistory: Bool = true)
         async throws -> AIResponse
     {
-        guard await isInitialized else {
+        guard isInitialized else {
             throw AIError.notInitialized
         }
 
@@ -1603,7 +1603,7 @@ class AIAssistant: ObservableObject {
 
             let context =
                 includeContext
-                ? await contextManager.getFormattedContext(
+                ? contextManager.getFormattedContext(
                     from: webpageContext, includeHistory: includeHistory) : nil
             if let context = context {
                 AppLog.debug("AI Chat: Using formatted context (\(context.count) chars)")
@@ -1661,7 +1661,7 @@ class AIAssistant: ObservableObject {
         return AsyncThrowingStream { continuation in
             Task {
                 do {
-                    guard await isInitialized else {
+                    guard isInitialized else {
                         throw AIError.notInitialized
                     }
 
@@ -1678,7 +1678,7 @@ class AIAssistant: ObservableObject {
                         AppLog.debug("Streaming: No webpage context extracted")
                     }
 
-                    let context = await self.contextManager.getFormattedContext(
+                    let context = self.contextManager.getFormattedContext(
                         from: webpageContext, includeHistory: includeHistory && includeContext)
                     if let context = context {
                         AppLog.debug("Streaming: formatted context=\(context.count)")
@@ -1752,7 +1752,7 @@ class AIAssistant: ObservableObject {
                     AppLog.error("Streaming error: \(error.localizedDescription)")
 
                     // Get the message ID before clearing state
-                    let messageId = await animationState.streamingMessageId
+                    let messageId = animationState.streamingMessageId
 
                     // Clear unified animation state on error
                     await MainActor.run {
@@ -1951,7 +1951,7 @@ class AIAssistant: ObservableObject {
 
     /// Generate TL;DR summary of current page content without affecting conversation history
     func generatePageTLDR() async throws -> String {
-        guard await isInitialized else {
+        guard isInitialized else {
             throw AIError.notInitialized
         }
 
@@ -2054,7 +2054,7 @@ class AIAssistant: ObservableObject {
         return AsyncThrowingStream { continuation in
             Task {
                 do {
-                    guard await isInitialized else {
+                    guard isInitialized else {
                         throw AIError.notInitialized
                     }
 

@@ -83,16 +83,24 @@ class MLXCacheManager {
         return false
     }
 
-    /// Check if model files exist and are complete (without validation overhead)
-    func hasCompleteModelFiles(for modelId: String) async -> Bool {
-        AppLog.debug("🔍 [CACHE DEBUG] Checking for complete model files for ID: \(modelId)")
-        let requiredFiles = ["config.json", "tokenizer.json", "model.safetensors"]
+    /// Check if model files exist and are complete (without validation overhead) - New method with model configuration
+    func hasCompleteModelFiles(for modelConfig: MLXModelConfiguration) async -> Bool {
+        AppLog.debug(
+            "🔍 [CACHE DEBUG] Checking for complete model files for ID: \(modelConfig.modelId)")
+        // Updated required files list to match manual download script
+        let requiredFiles = [
+            "config.json",
+            "tokenizer.json",
+            "tokenizer_config.json",
+            "special_tokens_map.json",
+            "model.safetensors",
+        ]
 
         AppLog.debug("🔍 [CACHE DEBUG] Searching in \(cacheDirectories.count) cache directories")
         for (index, cacheDir) in cacheDirectories.enumerated() {
             AppLog.debug("🔍 [CACHE DEBUG] Checking cache directory \(index + 1): \(cacheDir.path)")
 
-            if let modelDir = await findModelDirectory(in: cacheDir, for: modelId) {
+            if let modelDir = await findModelDirectory(in: cacheDir, for: modelConfig) {
                 AppLog.debug("🔍 [CACHE DEBUG] Found model directory: \(modelDir.path)")
                 // Quick file existence check without full validation
                 var allFilesPresent = true
@@ -131,15 +139,29 @@ class MLXCacheManager {
                 }
 
                 if allFilesPresent {
-                    AppLog.debug("🔍 [CACHE DEBUG] ✅ All required files found for: \(modelId)")
+                    AppLog.debug(
+                        "🔍 [CACHE DEBUG] ✅ All required files found for: \(modelConfig.modelId)")
                     return true
                 } else {
-                    AppLog.debug("🔍 [CACHE DEBUG] ❌ Some files missing for: \(modelId)")
+                    AppLog.debug("🔍 [CACHE DEBUG] ❌ Some files missing for: \(modelConfig.modelId)")
                 }
             }
         }
 
         return false
+    }
+
+    /// Legacy method for backward compatibility
+    func hasCompleteModelFiles(for modelId: String) async -> Bool {
+        let legacyConfig = MLXModelConfiguration(
+            name: "Legacy Model",
+            modelId: modelId,
+            huggingFaceRepo: modelId,
+            cacheDirectoryName: getCacheDirNameFromModelId(modelId),
+            estimatedSizeGB: 1.0,
+            modelKey: modelId
+        )
+        return await hasCompleteModelFiles(for: legacyConfig)
     }
 
     /// Clean up corrupted cache files for a specific model
@@ -234,9 +256,13 @@ class MLXCacheManager {
 
     /// Validate that all required model files exist and are complete
     func validateModelFiles(for modelId: String) async -> Bool {
-        let requiredFiles = ["config.json", "tokenizer.json"]
-        let optionalFiles = [
-            "model.safetensors", "tokenizer_config.json", "special_tokens_map.json",
+        // Updated to match manual download script requirements - all files are required
+        let requiredFiles = [
+            "config.json",
+            "tokenizer.json",
+            "tokenizer_config.json",
+            "special_tokens_map.json",
+            "model.safetensors",
         ]
 
         for cacheDir in cacheDirectories {
@@ -256,17 +282,7 @@ class MLXCacheManager {
                     }
                 }
 
-                // Check optional files for corruption if they exist
-                for fileName in optionalFiles {
-                    let filePath = modelDir.appendingPathComponent(fileName)
-                    if fileManager.fileExists(atPath: filePath.path) {
-                        if await isFileIncompleteOrCorrupted(filePath) {
-                            AppLog.debug("Corrupted optional file detected: \(fileName)")
-                            return false
-                        }
-                        AppLog.debug("Optional file validated: \(fileName)")
-                    }
-                }
+                // All files are now required - no optional files to check separately
 
                 AppLog.debug("Model validation passed for: \(modelId)")
                 return true
@@ -406,10 +422,17 @@ class MLXCacheManager {
         }
     }
 
-    /// Find the model directory for a given model ID
-    private func findModelDirectory(in cacheDir: URL, for modelId: String) async -> URL? {
+    /// Get cache directory name for a model configuration
+    private func getCacheDirectoryName(for modelConfig: MLXModelConfiguration) -> String {
+        return modelConfig.cacheDirectoryName
+    }
+
+    /// Find the model directory for a given model configuration
+    func findModelDirectory(in cacheDir: URL, for modelConfig: MLXModelConfiguration) async -> URL?
+    {
         AppLog.debug(
-            "🔍 [CACHE DEBUG] Finding model directory for ID: \(modelId) in \(cacheDir.path)")
+            "🔍 [CACHE DEBUG] Finding model directory for ID: \(modelConfig.modelId) in \(cacheDir.path)"
+        )
 
         do {
             let contents = try fileManager.contentsOfDirectory(
@@ -420,24 +443,11 @@ class MLXCacheManager {
 
             AppLog.debug("🔍 [CACHE DEBUG] Found \(contents.count) items in cache directory")
 
+            let expectedCacheDir = getCacheDirectoryName(for: modelConfig)
+            AppLog.debug("🔍 [CACHE DEBUG] Looking for cache directory: \(expectedCacheDir)")
+
             for item in contents {
                 let fileName = item.lastPathComponent
-
-                // Map internal model IDs to actual Hugging Face cache directory names
-                let expectedCacheDir: String
-                switch modelId {
-                case "gemma3_2B_4bit":
-                    expectedCacheDir = "models--mlx-community--gemma-2-2b-it-4bit"
-                case "gemma3_9B_4bit":
-                    expectedCacheDir = "models--mlx-community--gemma-2-9b-it-4bit"
-                case "llama3_2_1B_4bit":
-                    expectedCacheDir = "models--mlx-community--llama-3-2-1b-instruct-4bit"
-                case "llama3_2_3B_4bit":
-                    expectedCacheDir = "models--mlx-community--llama-3-2-3b-instruct-4bit"
-                default:
-                    expectedCacheDir =
-                        "models--" + modelId.replacingOccurrences(of: "/", with: "--")
-                }
 
                 AppLog.debug(
                     "🔍 [CACHE DEBUG] Checking item: \(fileName) against expected: \(expectedCacheDir)"
@@ -453,8 +463,22 @@ class MLXCacheManager {
                         // Look for snapshots directory
                         let snapshotsDir = item.appendingPathComponent("snapshots")
                         if fileManager.fileExists(atPath: snapshotsDir.path) {
-                            // Find the latest snapshot
+                            AppLog.debug(
+                                "🔍 [CACHE DEBUG] Found snapshots directory, looking for main snapshot"
+                            )
+                            // Look specifically for 'main' snapshot first (manual downloads use this)
+                            let mainSnapshotDir = snapshotsDir.appendingPathComponent("main")
+                            if fileManager.fileExists(atPath: mainSnapshotDir.path) {
+                                AppLog.debug(
+                                    "🔍 [CACHE DEBUG] ✅ Found main snapshot directory: \(mainSnapshotDir.path)"
+                                )
+                                return mainSnapshotDir
+                            }
+                            // Fallback to finding the latest snapshot
                             if let latestSnapshot = await findLatestSnapshot(in: snapshotsDir) {
+                                AppLog.debug(
+                                    "🔍 [CACHE DEBUG] ✅ Found latest snapshot: \(latestSnapshot.path)"
+                                )
                                 return latestSnapshot
                             }
                         }
@@ -462,8 +486,8 @@ class MLXCacheManager {
                     }
                 }
 
-                // Check for direct model directory
-                if fileName == modelId {
+                // Check for direct model directory (legacy support)
+                if fileName == modelConfig.modelId {
                     var isDirectory: ObjCBool = false
                     if fileManager.fileExists(atPath: item.path, isDirectory: &isDirectory)
                         && isDirectory.boolValue
@@ -477,7 +501,7 @@ class MLXCacheManager {
                 if fileManager.fileExists(atPath: item.path, isDirectory: &isDirectory)
                     && isDirectory.boolValue
                 {
-                    if let found = await findModelDirectory(in: item, for: modelId) {
+                    if let found = await findModelDirectory(in: item, for: modelConfig) {
                         return found
                     }
                 }
@@ -487,6 +511,36 @@ class MLXCacheManager {
         }
 
         return nil
+    }
+
+    /// Legacy method for backward compatibility - converts modelId to model config
+    private func findModelDirectory(in cacheDir: URL, for modelId: String) async -> URL? {
+        // Create a temporary model config for legacy support
+        let legacyConfig = MLXModelConfiguration(
+            name: "Legacy Model",
+            modelId: modelId,
+            huggingFaceRepo: modelId,
+            cacheDirectoryName: getCacheDirNameFromModelId(modelId),
+            estimatedSizeGB: 1.0,
+            modelKey: modelId
+        )
+        return await findModelDirectory(in: cacheDir, for: legacyConfig)
+    }
+
+    /// Convert legacy model ID to cache directory name
+    private func getCacheDirNameFromModelId(_ modelId: String) -> String {
+        switch modelId {
+        case "gemma3_2B_4bit":
+            return "models--mlx-community--gemma-2-2b-it-4bit"
+        case "gemma3_9B_4bit":
+            return "models--mlx-community--gemma-2-9b-it-4bit"
+        case "llama3_2_1B_4bit":
+            return "models--mlx-community--Llama-3.2-1B-Instruct-4bit"
+        case "llama3_2_3B_4bit":
+            return "models--mlx-community--Llama-3.2-3B-Instruct-4bit"
+        default:
+            return "models--" + modelId.replacingOccurrences(of: "/", with: "--")
+        }
     }
 
     /// Find the latest snapshot in a snapshots directory
