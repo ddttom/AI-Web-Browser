@@ -88,7 +88,14 @@ open Web.xcodeproj
 
 4. **Recommended**: Run the manual model download script to avoid AI initialization issues:
    ```bash
+   # Standard download (skips if files exist)
    ./scripts/manual_model_download.sh
+   
+   # Force download (re-downloads all files)
+   ./scripts/manual_model_download.sh -f
+   
+   # Show help
+   ./scripts/manual_model_download.sh -h
    ```
 
 5. **Optional**: For advanced users who want to convert GGUF models to MLX format:
@@ -139,9 +146,22 @@ The app now includes **intelligent AI initialization** that coordinates with man
 - **Conflict Prevention**: Avoids cache interference during manual downloads
 - **Graceful Fallback**: Automatically downloads if no manual process is detected
 
-**Manual Download Option** (when needed):
+**Enhanced Manual Download Script**:
 ```bash
+# Standard mode - skips download if files already exist
 ./scripts/manual_model_download.sh
+
+# Force mode - re-downloads all files regardless of existing files
+./scripts/manual_model_download.sh -f
+
+# Help and usage information
+./scripts/manual_model_download.sh -h
+```
+
+**Model Management Script**:
+```bash
+# Clear downloaded models (useful for testing/troubleshooting)
+./scripts/clear_model.sh
 ```
 
 **Standalone Model Converter** (for advanced users):
@@ -194,23 +214,70 @@ If you encounter AI initialization errors:
 1. **Automatic Recovery**: The app will attempt to fix corrupted downloads automatically
 2. **Manual Recovery**: If automatic recovery fails, run:
    ```bash
+   # Standard recovery (skips if files exist)
+   ./scripts/manual_model_download.sh
+   
+   # Force fresh download (re-downloads all files)
+   ./scripts/manual_model_download.sh -f
+   ```
+3. **Clear Cache**: For complete reset, clear existing models first:
+   ```bash
+   ./scripts/clear_model.sh
    ./scripts/manual_model_download.sh
    ```
-3. **Debug Output**: The manual download script provides detailed debug messages showing:
+4. **Debug Output**: The enhanced manual download script provides detailed debug messages showing:
    - Script execution progress and current location
    - File download attempts and success/failure status
    - Cache directory creation and cleanup operations
    - Error conditions with specific failure points
    - Process coordination and timing information
-4. **Cache Management**: Use Settings > Model Management to view and clean cache
-5. **Full Documentation**: See [docs/Troubleshooting.md](docs/Troubleshooting.md) for complete recovery steps
+   - Force mode operations and file management
+5. **Cache Management**: Use Settings > Model Management to view and clean cache
+6. **Full Documentation**: See [docs/Troubleshooting.md](docs/Troubleshooting.md) for complete recovery steps
 
 ### Common Issues
 
 - **"MLX model tokenizer corrupted"**: Run the manual download script
 - **"Automatic recovery failed"**: Clear cache manually and restart app
+- **"MLX model validation failed"**: Files downloaded but app can't detect them:
+  ```bash
+  # Verify files are accessible
+  ./scripts/verify_model.sh
+  
+  # Force fresh download if needed
+  ./scripts/manual_model_download.sh -f
+  ```
 - **Network issues**: Check firewall settings for Hugging Face access
 - **Disk space**: Ensure 5GB+ free space for model downloads
+
+### Enhanced Troubleshooting Scripts
+
+**Model Verification Script**:
+```bash
+./scripts/verify_model.sh
+```
+This script checks:
+- Directory structure and permissions
+- File existence and sizes
+- File readability and accessibility
+- Path consistency between script and app expectations
+
+**Complete Model Management Workflow**:
+```bash
+# 1. Verify current state
+./scripts/verify_model.sh
+
+# 2. Clear if needed
+./scripts/clear_model.sh
+
+# 3. Download fresh files
+./scripts/manual_model_download.sh -f
+
+# 4. Verify again
+./scripts/verify_model.sh
+
+# 5. Start app with enhanced debug logging
+```
 
 ### Advanced Model Conversion
 

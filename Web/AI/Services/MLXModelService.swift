@@ -49,17 +49,30 @@ class MLXModelService: ObservableObject {
     // MARK: - Initialization
 
     init() {
+        // Use NSLog for critical debugging that always shows
+        NSLog("🚀 [CRITICAL] MLXModelService INITIALIZATION STARTED")
+        AppLog.debug("🚀 [INIT] === MLXModelService INITIALIZATION STARTED ===")
+
         // Set default model configuration
         Task { @MainActor in
             currentModel = MLXModelConfiguration.gemma3_2B_4bit
+            NSLog("🚀 [CRITICAL] Default model configuration set: gemma3_2B_4bit")
+            AppLog.debug("🚀 [INIT] Default model configuration set: gemma3_2B_4bit")
         }
 
         // Smart startup initialization - check for existing models and manual downloads
         Task {
+            NSLog("🚀 [CRITICAL] Starting smart startup initialization task...")
+            AppLog.debug("🚀 [INIT] Starting smart startup initialization task...")
             await performSmartStartupInitialization()
+            NSLog("🚀 [CRITICAL] Smart startup initialization task completed")
+            AppLog.debug("🚀 [INIT] Smart startup initialization task completed")
         }
 
-        AppLog.debug("MLXModelService init - performing smart startup initialization…")
+        NSLog(
+            "🚀 [CRITICAL] MLXModelService init completed - smart startup initialization scheduled")
+        AppLog.debug(
+            "🚀 [INIT] MLXModelService init completed - smart startup initialization scheduled")
     }
 
     deinit {
@@ -71,7 +84,19 @@ class MLXModelService: ObservableObject {
     /// Intelligent check: returns true if model is ready, false if download needed
     @MainActor
     func isAIReady() async -> Bool {
-        return isModelReady && downloadState == .ready
+        AppLog.debug("🔍 [AI READY CHECK] === isAIReady() called ===")
+        AppLog.debug("🔍 [AI READY CHECK] isModelReady: \(isModelReady)")
+        AppLog.debug("🔍 [AI READY CHECK] downloadState: \(downloadState)")
+
+        let result = isModelReady && downloadState == .ready
+        AppLog.debug("🔍 [AI READY CHECK] Final result: \(result)")
+
+        if !result {
+            AppLog.debug("🔍 [AI READY CHECK] ❌ AI not ready - this will trigger download")
+            AppLog.debug("🔍 [AI READY CHECK] Current model: \(currentModel?.name ?? "nil")")
+        }
+
+        return result
     }
 
     /// Get model configuration (replaces getModelPath for MLX compatibility)
@@ -92,22 +117,38 @@ class MLXModelService: ObservableObject {
 
     /// Start AI initialization - downloads model if needed
     func initializeAI() async throws {
+        AppLog.debug("🔥 [INIT AI] === initializeAI() CALLED - BYPASSING SMART INIT ===")
+
         // If already ready, no action needed
         if await isAIReady() {
-            AppLog.debug("MLX AI model already ready - no download needed")
+            AppLog.debug("🔥 [INIT AI] MLX AI model already ready - no download needed")
             return
         }
 
         // If currently downloading, just wait
         if downloadState == .downloading {
-            if AppLog.isVerboseEnabled {
-                AppLog.debug("MLX AI model download in progress - waiting…")
-            }
+            AppLog.debug("🔥 [INIT AI] MLX AI model download in progress - waiting…")
             return
         }
 
+        AppLog.debug(
+            "🔥 [INIT AI] Redirecting to smart initialization instead of direct download...")
+
+        // Use smart initialization instead of direct download
+        await performSmartStartupInitialization()
+
+        // Check if smart initialization succeeded
+        if await isAIReady() {
+            AppLog.debug("🔥 [INIT AI] ✅ Smart initialization succeeded")
+            return
+        }
+
+        AppLog.debug(
+            "🔥 [INIT AI] Smart initialization didn't complete - falling back to direct download")
+
         // Start download/loading process with enhanced error handling
         do {
+            AppLog.debug("🔥 [INIT AI] Calling downloadModelIfNeeded() as fallback...")
             try await downloadModelIfNeeded()
         } catch {
             // Check if this is a recoverable tokenizer corruption error
@@ -199,28 +240,51 @@ class MLXModelService: ObservableObject {
     /// Smart startup initialization that respects manual downloads and existing models
     @MainActor
     private func performSmartStartupInitialization() async {
+        AppLog.debug("🚀 [SMART INIT] === SMART STARTUP INITIALIZATION STARTED ===")
+
         guard let model = currentModel else {
+            AppLog.debug("🚀 [SMART INIT] ❌ No model configuration available")
             downloadState = .failed("No model configuration available")
             return
         }
 
-        AppLog.debug("Smart startup initialization for model: \(model.name)")
+        AppLog.debug("🚀 [SMART INIT] Model configuration loaded:")
+        AppLog.debug("🚀 [SMART INIT]   Name: \(model.name)")
+        AppLog.debug("🚀 [SMART INIT]   Model ID: \(model.modelId)")
+        AppLog.debug("🚀 [SMART INIT]   HuggingFace Repo: \(model.huggingFaceRepo)")
+        AppLog.debug("🚀 [SMART INIT]   Cache Directory Name: \(model.cacheDirectoryName)")
+        AppLog.debug("🚀 [SMART INIT] Starting smart initialization for model: \(model.name)")
         downloadState = .checking
 
         // Step 1: Check if manual download is currently active
-        if await MLXCacheManager.shared.isManualDownloadActive() {
-            AppLog.debug("Manual download detected - waiting for completion...")
+        AppLog.debug("🚀 [SMART INIT] Step 1: Checking for active manual downloads...")
+        let isManualActive = await MLXCacheManager.shared.isManualDownloadActive()
+        AppLog.debug("🚀 [SMART INIT] Manual download active: \(isManualActive)")
+
+        if isManualActive {
+            AppLog.debug("🚀 [SMART INIT] ⏳ Manual download detected - waiting for completion...")
             downloadState = .downloading
             downloadProgress = 0.0
 
             // Wait for manual download to complete
             await waitForManualDownloadCompletion(model: model)
             return
+        } else {
+            AppLog.debug("🚀 [SMART INIT] ✅ No manual download active - proceeding with file check")
         }
 
         // Step 2: Quick check for complete model files (without full validation)
-        if await MLXCacheManager.shared.hasCompleteModelFiles(for: model.modelId) {
-            AppLog.debug("Complete model files detected - attempting to load existing model")
+        AppLog.debug("🚀 [SMART INIT] Step 2: Checking for complete model files...")
+        AppLog.debug("🚀 [SMART INIT] Calling hasCompleteModelFiles for modelId: \(model.modelId)")
+
+        let hasCompleteFiles = await MLXCacheManager.shared.hasCompleteModelFiles(
+            for: model.modelId)
+        AppLog.debug("🚀 [SMART INIT] hasCompleteModelFiles result: \(hasCompleteFiles)")
+
+        if hasCompleteFiles {
+            AppLog.debug(
+                "🚀 [SMART INIT] ✅ Complete model files detected - attempting to load existing model"
+            )
 
             do {
                 // Try to load the existing model without triggering downloads
@@ -465,12 +529,23 @@ class MLXModelService: ObservableObject {
 
     @MainActor
     private func downloadModelIfNeeded() async throws {
+        AppLog.debug("📥 [DOWNLOAD] === downloadModelIfNeeded() STARTED ===")
+
         guard let model = currentModel else {
+            AppLog.debug("📥 [DOWNLOAD] ❌ No model configuration available")
             throw MLXModelError.noModelConfiguration
         }
 
+        AppLog.debug("📥 [DOWNLOAD] Model configuration:")
+        AppLog.debug("📥 [DOWNLOAD]   Name: \(model.name)")
+        AppLog.debug("📥 [DOWNLOAD]   Model ID: \(model.modelId)")
+        AppLog.debug("📥 [DOWNLOAD]   HuggingFace Repo: \(model.huggingFaceRepo)")
+        AppLog.debug("📥 [DOWNLOAD]   Cache Directory Name: \(model.cacheDirectoryName)")
+
         downloadState = .downloading
         downloadProgress = 0.0
+
+        AppLog.debug("📥 [DOWNLOAD] Download state set to downloading, progress reset to 0.0")
 
         if AppLog.isVerboseEnabled {
             AppLog.debug(
@@ -487,19 +562,47 @@ class MLXModelService: ObservableObject {
 
         for attempt in 1...maxRetries {
             do {
-                AppLog.debug(
-                    "Download attempt \(attempt) of \(maxRetries) for model: \(model.name)")
+                AppLog.debug("📥 [DOWNLOAD] === ATTEMPT \(attempt) of \(maxRetries) ===")
+                AppLog.debug("📥 [DOWNLOAD] Model: \(model.name)")
+                AppLog.debug("📥 [DOWNLOAD] Model ID: \(model.modelId)")
+                AppLog.debug("📥 [DOWNLOAD] HuggingFace Repo: \(model.huggingFaceRepo)")
+
+                // CRITICAL: Check if files already exist before attempting download
+                AppLog.debug("📥 [DOWNLOAD] Step 1: Checking for existing files before download...")
+                let existingFiles = await MLXCacheManager.shared.hasCompleteModelFiles(
+                    for: model.modelId)
+                AppLog.debug("📥 [DOWNLOAD] Existing files check result: \(existingFiles)")
+
+                if existingFiles {
+                    AppLog.debug("📥 [DOWNLOAD] ✅ FILES ALREADY EXIST - Should not be downloading!")
+                    AppLog.debug("📥 [DOWNLOAD] Attempting to load existing files instead...")
+
+                    // Try to load existing files
+                    try await SimplifiedMLXRunner.shared.ensureLoaded(
+                        modelId: model.huggingFaceRepo)
+
+                    // If successful, mark as ready
+                    isModelReady = true
+                    downloadState = .ready
+                    downloadProgress = 1.0
+                    AppLog.debug("📥 [DOWNLOAD] ✅ Successfully loaded existing model files")
+                    return
+                }
 
                 // Clean up any corrupted cache before attempting download
+                AppLog.debug("📥 [DOWNLOAD] Step 2: Cleaning corrupted cache...")
                 do {
                     try await MLXCacheManager.shared.cleanupCorruptedCache(for: model.modelId)
+                    AppLog.debug("📥 [DOWNLOAD] Cache cleanup completed successfully")
                 } catch {
                     AppLog.debug(
-                        "Cache cleanup had issues but continuing: \(error.localizedDescription)")
+                        "📥 [DOWNLOAD] Cache cleanup had issues but continuing: \(error.localizedDescription)"
+                    )
                     // Don't fail the download attempt just because cleanup had issues
                 }
 
                 // Attempt download with enhanced error handling
+                AppLog.debug("📥 [DOWNLOAD] Step 3: Attempting download with validation...")
                 try await performDownloadWithValidation(model: model)
 
                 // If we get here, download was successful
@@ -512,7 +615,41 @@ class MLXModelService: ObservableObject {
 
             } catch {
                 lastError = error
-                AppLog.error("Download attempt \(attempt) failed: \(error.localizedDescription)")
+                AppLog.error(
+                    "📥 [DOWNLOAD] ❌ Download attempt \(attempt) failed: \(error.localizedDescription)"
+                )
+
+                // Enhanced error categorization
+                let errorDescription = error.localizedDescription.lowercased()
+                if errorDescription.contains("file") && errorDescription.contains("not found") {
+                    AppLog.error("📥 [DOWNLOAD] 🔍 ERROR CATEGORY: File Not Found")
+                    AppLog.error("📥 [DOWNLOAD] Expected model path: \(model.huggingFaceRepo)")
+                    AppLog.error("📥 [DOWNLOAD] Cache directory: \(model.cacheDirectoryName)")
+
+                    // Check what files actually exist
+                    let homeDir = FileManager.default.homeDirectoryForCurrentUser
+                    let expectedPath = homeDir.appendingPathComponent(
+                        ".cache/huggingface/hub/\(model.cacheDirectoryName)/snapshots/main")
+                    AppLog.error("📥 [DOWNLOAD] Expected file location: \(expectedPath.path)")
+                    AppLog.error(
+                        "📥 [DOWNLOAD] Directory exists: \(FileManager.default.fileExists(atPath: expectedPath.path))"
+                    )
+
+                } else if errorDescription.contains("corrupt")
+                    || errorDescription.contains("incomplete")
+                {
+                    AppLog.error("📥 [DOWNLOAD] 🔍 ERROR CATEGORY: File Corruption/Incomplete")
+                    AppLog.error("📥 [DOWNLOAD] This suggests files exist but are invalid")
+
+                    // Perform detailed file integrity check
+                    let hasFiles = await MLXCacheManager.shared.hasCompleteModelFiles(
+                        for: model.modelId)
+                    AppLog.error("📥 [DOWNLOAD] hasCompleteModelFiles result: \(hasFiles)")
+
+                } else {
+                    AppLog.error("📥 [DOWNLOAD] 🔍 ERROR CATEGORY: Other/Unknown")
+                    AppLog.error("📥 [DOWNLOAD] Full error: \(error)")
+                }
 
                 // Cancel any ongoing progress monitoring
                 downloadTask?.cancel()

@@ -17,20 +17,44 @@ class MLXCacheManager {
 
         // Hugging Face cache directory (primary location)
         let homeDir = fileManager.homeDirectoryForCurrentUser
-        directories.append(homeDir.appendingPathComponent(".cache/huggingface/hub"))
+        let hfCacheDir = homeDir.appendingPathComponent(".cache/huggingface/hub")
+        directories.append(hfCacheDir)
+
+        AppLog.debug("🔍 [CACHE DIRS] Primary HF cache directory: \(hfCacheDir.path)")
+        AppLog.debug(
+            "🔍 [CACHE DIRS] HF cache exists: \(fileManager.fileExists(atPath: hfCacheDir.path))")
 
         // MLX cache directory
         if let cacheDir = fileManager.urls(for: .cachesDirectory, in: .userDomainMask).first {
-            directories.append(cacheDir.appendingPathComponent("MLXCache"))
+            let mlxCacheDir = cacheDir.appendingPathComponent("MLXCache")
+            directories.append(mlxCacheDir)
+            AppLog.debug("🔍 [CACHE DIRS] MLX cache directory: \(mlxCacheDir.path)")
+            AppLog.debug(
+                "🔍 [CACHE DIRS] MLX cache exists: \(fileManager.fileExists(atPath: mlxCacheDir.path))"
+            )
         }
 
         // System cache directories
         if let systemCacheDir = fileManager.urls(for: .cachesDirectory, in: .systemDomainMask).first
         {
-            directories.append(systemCacheDir.appendingPathComponent("MLXCache"))
+            let sysCacheDir = systemCacheDir.appendingPathComponent("MLXCache")
+            directories.append(sysCacheDir)
+            AppLog.debug("🔍 [CACHE DIRS] System cache directory: \(sysCacheDir.path)")
+            AppLog.debug(
+                "🔍 [CACHE DIRS] System cache exists: \(fileManager.fileExists(atPath: sysCacheDir.path))"
+            )
         }
 
-        return directories.filter { fileManager.fileExists(atPath: $0.path) }
+        let existingDirs = directories.filter { fileManager.fileExists(atPath: $0.path) }
+        AppLog.debug(
+            "🔍 [CACHE DIRS] Total directories found: \(directories.count), existing: \(existingDirs.count)"
+        )
+
+        for (index, dir) in existingDirs.enumerated() {
+            AppLog.debug("🔍 [CACHE DIRS] Directory \(index + 1): \(dir.path)")
+        }
+
+        return existingDirs
     }
 
     // MARK: - Public Interface
@@ -153,6 +177,8 @@ class MLXCacheManager {
 
     /// Legacy method for backward compatibility
     func hasCompleteModelFiles(for modelId: String) async -> Bool {
+        AppLog.debug("🔍 [LEGACY CHECK] Called with legacy modelId: \(modelId)")
+
         let legacyConfig = MLXModelConfiguration(
             name: "Legacy Model",
             modelId: modelId,
@@ -161,7 +187,90 @@ class MLXCacheManager {
             estimatedSizeGB: 1.0,
             modelKey: modelId
         )
-        return await hasCompleteModelFiles(for: legacyConfig)
+
+        AppLog.debug("🔍 [LEGACY CHECK] Created legacy config:")
+        AppLog.debug("🔍 [LEGACY CHECK]   Cache dir name: \(legacyConfig.cacheDirectoryName)")
+        AppLog.debug("🔍 [LEGACY CHECK]   HF repo: \(legacyConfig.huggingFaceRepo)")
+
+        let result = await hasCompleteModelFiles(for: legacyConfig)
+        AppLog.debug("🔍 [LEGACY CHECK] Legacy check result: \(result)")
+
+        return result
+    }
+
+    /// Validate that manually downloaded files are accessible to the app
+    func validateManualDownloadAccessibility(for modelConfig: MLXModelConfiguration) async -> Bool {
+        AppLog.debug("🔍 [MANUAL VALIDATE] === Validating manual download accessibility ===")
+        AppLog.debug("🔍 [MANUAL VALIDATE] Model: \(modelConfig.modelId)")
+
+        // Check the exact path where manual downloads are stored
+        let homeDir = fileManager.homeDirectoryForCurrentUser
+        let manualDownloadPath =
+            homeDir
+            .appendingPathComponent(".cache/huggingface/hub")
+            .appendingPathComponent(modelConfig.cacheDirectoryName)
+            .appendingPathComponent("snapshots/main")
+
+        AppLog.debug(
+            "🔍 [MANUAL VALIDATE] Expected manual download path: \(manualDownloadPath.path)")
+        AppLog.debug(
+            "🔍 [MANUAL VALIDATE] Directory exists: \(fileManager.fileExists(atPath: manualDownloadPath.path))"
+        )
+
+        guard fileManager.fileExists(atPath: manualDownloadPath.path) else {
+            AppLog.debug("🔍 [MANUAL VALIDATE] ❌ Manual download directory not found")
+            return false
+        }
+
+        // Check all required files
+        let requiredFiles = [
+            "config.json",
+            "tokenizer.json",
+            "tokenizer_config.json",
+            "special_tokens_map.json",
+            "model.safetensors",
+        ]
+
+        AppLog.debug("🔍 [MANUAL VALIDATE] Checking \(requiredFiles.count) required files...")
+
+        for fileName in requiredFiles {
+            let filePath = manualDownloadPath.appendingPathComponent(fileName)
+            AppLog.debug("🔍 [MANUAL VALIDATE] Checking: \(filePath.path)")
+
+            guard fileManager.fileExists(atPath: filePath.path) else {
+                AppLog.debug("🔍 [MANUAL VALIDATE] ❌ Missing file: \(fileName)")
+                return false
+            }
+
+            // Check file size and readability
+            do {
+                let attributes = try fileManager.attributesOfItem(atPath: filePath.path)
+                let fileSize = attributes[.size] as? Int64 ?? 0
+                let isReadable = fileManager.isReadableFile(atPath: filePath.path)
+
+                AppLog.debug(
+                    "🔍 [MANUAL VALIDATE] ✅ \(fileName): \(fileSize) bytes, readable: \(isReadable)")
+
+                if fileSize < 10 {
+                    AppLog.debug("🔍 [MANUAL VALIDATE] ❌ File too small: \(fileName)")
+                    return false
+                }
+
+                if !isReadable {
+                    AppLog.debug("🔍 [MANUAL VALIDATE] ❌ File not readable: \(fileName)")
+                    return false
+                }
+
+            } catch {
+                AppLog.debug(
+                    "🔍 [MANUAL VALIDATE] ❌ Error checking \(fileName): \(error.localizedDescription)"
+                )
+                return false
+            }
+        }
+
+        AppLog.debug("🔍 [MANUAL VALIDATE] ✅ All manual download files validated successfully")
+        return true
     }
 
     /// Clean up corrupted cache files for a specific model

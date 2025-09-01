@@ -143,10 +143,12 @@ flowchart TD
 ## Success Criteria
 
 ### Primary Goals
-1. **✅ Zero Conflicts**: Manual downloads never fail due to app interference
-2. **✅ Startup AI**: AI initialization remains a startup event
-3. **✅ Smart Detection**: App recognizes existing downloads and avoids redundant work
-4. **✅ User Control**: Users can choose manual or automatic download methods
+1. **✅ Zero Conflicts**: Manual downloads never fail due to app interference - **IMPLEMENTED**
+2. **✅ Startup AI**: AI initialization remains a startup event - **IMPLEMENTED**
+3. **✅ Smart Detection**: App recognizes existing downloads and avoids redundant work - **IMPLEMENTED**
+4. **✅ User Control**: Users can choose manual or automatic download methods - **IMPLEMENTED**
+5. **✅ Force Download**: Users can force fresh downloads for testing/troubleshooting - **IMPLEMENTED**
+6. **✅ Model Management**: Users can easily clear downloaded models - **IMPLEMENTED**
 
 ### Performance Targets
 - **Fast Recognition**: Existing model detection < 1 second
@@ -175,6 +177,9 @@ flowchart TD
 - Successful model loading in all scenarios
 - Clear error messages and recovery guidance
 - Performance within target ranges
+- Enhanced debug logging for troubleshooting
+- Path consistency validation between scripts and app
+- File accessibility verification after downloads
 
 ## Future Enhancements
 
@@ -227,12 +232,67 @@ pip install mlx-lm
 - **Automatic Detection**: Converted models are automatically detected by the application
 - **Performance Optimization**: MLX format provides optimal Apple Silicon performance
 
+## Enhanced Script Management
+
+### Manual Download Script Enhancements
+The `scripts/manual_model_download.sh` script now includes advanced features for better user control:
+
+#### Smart Detection Mode (Default)
+```bash
+./scripts/manual_model_download.sh
+```
+- **Intelligent File Check**: Detects existing complete model files
+- **Skip Optimization**: Exits immediately if all required files exist
+- **Bandwidth Saving**: Only downloads missing or incomplete files
+- **Fast Execution**: Minimal overhead for subsequent runs
+
+#### Force Download Mode
+```bash
+./scripts/manual_model_download.sh -f
+./scripts/manual_model_download.sh --force
+```
+- **Override Detection**: Downloads all files regardless of existing files
+- **Fresh Downloads**: Ensures latest versions of all model files
+- **Testing Support**: Perfect for development and troubleshooting scenarios
+- **Clean Slate**: Removes existing files before downloading fresh copies
+
+#### Help and Usage
+```bash
+./scripts/manual_model_download.sh -h
+./scripts/manual_model_download.sh --help
+```
+- **Usage Information**: Clear documentation of all available options
+- **Examples**: Practical usage examples for different scenarios
+
+### Model Management Script
+The new `scripts/clear_model.sh` script provides safe model cleanup:
+
+#### Features
+- **Interactive Confirmation**: Prompts user before deletion
+- **File Size Reporting**: Shows total space to be freed
+- **Comprehensive Cleanup**: Removes model files, lock files, and empty directories
+- **Safety Checks**: Validates files exist before attempting removal
+- **Status Feedback**: Clear success/failure messages
+
+#### Usage
+```bash
+./scripts/clear_model.sh
+```
+
+### Workflow Integration
+These scripts work together to provide flexible model management:
+
+1. **Standard Workflow**: `manual_model_download.sh` → App startup
+2. **Force Refresh**: `manual_model_download.sh -f` → App startup  
+3. **Clean Reset**: `clear_model.sh` → `manual_model_download.sh` → App startup
+4. **Testing Cycle**: `clear_model.sh` → `manual_model_download.sh -f` → Test → Repeat
+
 ## Documentation Updates
 
 ### User Documentation
-- **README.md**: Updated installation guide with smart initialization info and standalone converter documentation
-- **Troubleshooting Guide**: Enhanced with coordination scenarios
-- **Manual Download Guide**: Clear instructions for manual download timing
+- **README.md**: Updated installation guide with enhanced script documentation and usage examples
+- **Troubleshooting Guide**: Enhanced with new script capabilities and recovery workflows
+- **Manual Download Guide**: Clear instructions for all script modes and options
 - **Converter Guide**: Documentation for standalone GGUF to MLX conversion
 
 ### Technical Documentation

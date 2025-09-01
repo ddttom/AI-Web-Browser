@@ -2,8 +2,38 @@
 
 # Manual MLX Model Download Script
 # This script manually downloads the Gemma 2 2B model for MLX when automatic download fails
+# Usage: ./manual_model_download.sh [-f|--force]
+#   -f, --force    Force download even if files already exist
 
 set -e  # Exit on any error
+
+# Parse command line arguments
+FORCE_DOWNLOAD=false
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        -f|--force)
+            FORCE_DOWNLOAD=true
+            shift
+            ;;
+        -h|--help)
+            echo "Manual MLX Model Download Script"
+            echo "Usage: $0 [-f|--force] [-h|--help]"
+            echo ""
+            echo "Options:"
+            echo "  -f, --force    Force download even if files already exist"
+            echo "  -h, --help     Show this help message"
+            echo ""
+            echo "This script downloads the Gemma 2 2B MLX model files to:"
+            echo "  ~/.cache/huggingface/hub/models--mlx-community--gemma-2-2b-it-4bit/snapshots/main/"
+            exit 0
+            ;;
+        *)
+            echo "❌ Unknown option: $1"
+            echo "Use -h or --help for usage information"
+            exit 1
+            ;;
+    esac
+done
 
 # Debug function for consistent message formatting
 debug_log() {
@@ -13,9 +43,16 @@ debug_log() {
     echo "🔍 [DEBUG $timestamp] [$level] $message"
 }
 
-debug_log "INFO" "Script started - Manual MLX Model Download"
-echo "� Manual MLX Model Download Script"
-echo "=================================="
+if [[ "$FORCE_DOWNLOAD" == true ]]; then
+    debug_log "INFO" "Script started - Manual MLX Model Download (FORCE MODE)"
+    echo "🔥 Manual MLX Model Download Script (FORCE MODE)"
+    echo "================================================="
+    echo "⚠️  Force mode enabled - will re-download all files"
+else
+    debug_log "INFO" "Script started - Manual MLX Model Download"
+    echo "📥 Manual MLX Model Download Script"
+    echo "=================================="
+fi
 echo ""
 
 debug_log "INFO" "Checking operating system compatibility"
@@ -69,18 +106,6 @@ cleanup() {
 # Set trap to cleanup on script exit (success or failure)
 trap cleanup EXIT
 
-debug_log "INFO" "Cleaning existing files from snapshot directory"
-echo "🧹 Cleaning existing files..."
-rm -f "${SNAPSHOT_DIR}"/*.json
-rm -f "${SNAPSHOT_DIR}"/*.safetensors
-rm -f "${SNAPSHOT_DIR}"/*.incomplete
-debug_log "INFO" "File cleanup completed"
-
-debug_log "INFO" "Starting model file downloads"
-echo "📥 Downloading model files..."
-cd "${SNAPSHOT_DIR}"
-debug_log "INFO" "Changed to snapshot directory: ${SNAPSHOT_DIR}"
-
 # Required files for MLX model
 FILES=(
     "config.json"
@@ -90,16 +115,89 @@ FILES=(
     "model.safetensors"
 )
 
+cd "${SNAPSHOT_DIR}"
+debug_log "INFO" "Changed to snapshot directory: ${SNAPSHOT_DIR}"
+
+# Skip file existence check if force mode is enabled
+if [[ "$FORCE_DOWNLOAD" == true ]]; then
+    debug_log "INFO" "Force mode enabled - skipping file existence check"
+    echo "🔥 Force mode: Will re-download all files regardless of existing files"
+    echo "🧹 Cleaning existing files..."
+    rm -f "${SNAPSHOT_DIR}"/*.json
+    rm -f "${SNAPSHOT_DIR}"/*.safetensors
+    rm -f "${SNAPSHOT_DIR}"/*.incomplete
+    debug_log "INFO" "Existing files cleaned for force download"
+else
+    debug_log "INFO" "Checking if all required files already exist"
+    echo "🔍 Checking existing files..."
+    
+    # Check if all files already exist and are non-empty
+    all_files_exist=true
+    for file in "${FILES[@]}"; do
+        if [[ ! -s "${file}" ]]; then
+            debug_log "INFO" "File ${file} is missing or empty"
+            all_files_exist=false
+            break
+        else
+            # Get file size safely with error handling
+            if size=$(du -h "${file}" 2>/dev/null | cut -f1); then
+                debug_log "INFO" "File ${file} exists and is non-empty (${size})"
+            else
+                debug_log "INFO" "File ${file} exists and is non-empty (size unknown)"
+            fi
+        fi
+    done
+
+    if [[ "$all_files_exist" == true ]]; then
+        debug_log "INFO" "All required files already exist - skipping download"
+        echo ""
+        echo "✅ All model files already exist and are non-empty!"
+        echo "📍 Model location: ${SNAPSHOT_DIR}"
+        echo ""
+        echo "📋 Existing files:"
+        for file in "${FILES[@]}"; do
+            size=$(du -h "${file}" | cut -f1)
+            echo "  ✅ ${file}: ${size}"
+        done
+        echo ""
+        echo "🔍 [SCRIPT DEBUG] Model ID mapping for app coordination:"
+        echo "   Internal App Model ID: gemma3_2B_4bit"
+        echo "   Hugging Face Model: mlx-community/gemma-2-2b-it-4bit"
+        echo "   Cache Directory: models--mlx-community--gemma-2-2b-it-4bit"
+        echo "   Full Path: ${SNAPSHOT_DIR}"
+        echo ""
+        echo "💡 No download needed - you can start the Web app immediately!"
+        echo "   The app should detect these existing model files automatically."
+        echo "   Use -f or --force to re-download files anyway."
+        exit 0
+    fi
+fi
+
+if [[ "$FORCE_DOWNLOAD" == false ]]; then
+    debug_log "INFO" "Some files missing or empty - proceeding with download"
+    echo "🧹 Cleaning incomplete files..."
+    rm -f "${SNAPSHOT_DIR}"/*.incomplete
+    debug_log "INFO" "Incomplete file cleanup completed"
+    echo "📥 Downloading missing model files..."
+else
+    echo "📥 Force downloading all model files..."
+fi
+
+debug_log "INFO" "Starting model file downloads"
+
 # Download each file with retry logic
 for file in "${FILES[@]}"; do
     debug_log "INFO" "Starting download for file: ${file} -> ${SNAPSHOT_DIR}/${file}"
     echo "  📄 Downloading ${file}..."
     
-    # Check if file already exists and is valid
-    if [[ -s "${file}" ]]; then
+    # Check if file already exists and is valid (skip check in force mode)
+    if [[ "$FORCE_DOWNLOAD" == false && -s "${file}" ]]; then
         debug_log "INFO" "File ${file} already exists and is non-empty, skipping download"
         echo "  ✅ ${file} already exists ($(du -h "${file}" | cut -f1))"
         continue
+    elif [[ "$FORCE_DOWNLOAD" == true && -s "${file}" ]]; then
+        debug_log "INFO" "Force mode: removing existing file ${file} before download"
+        rm -f "${file}"
     fi
     
     # Retry logic for downloads
