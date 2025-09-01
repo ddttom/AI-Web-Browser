@@ -91,6 +91,11 @@ open Web.xcodeproj
    ./scripts/manual_model_download.sh
    ```
 
+5. **Optional**: For advanced users who want to convert GGUF models to MLX format:
+   ```bash
+   ./scripts/convert_gemma.sh
+   ```
+
 ## Architecture
 
 Web follows MVVM architecture with SwiftUI and Combine. For detailed architecture documentation, see [Architecture.md](docs/Architecture.md).
@@ -138,6 +143,17 @@ The app now includes **intelligent AI initialization** that coordinates with man
 ```bash
 ./scripts/manual_model_download.sh
 ```
+
+**Standalone Model Converter** (for advanced users):
+```bash
+./scripts/convert_gemma.sh
+```
+
+This script converts GGUF Gemma models to MLX format for Apple Silicon optimization. It requires:
+- Python 3 with `mlx-lm` package (`pip install mlx-lm`)
+- Converts from Hugging Face GGUF models to optimized MLX format
+- Outputs to `~/Library/Caches/Web/AI/Models/` directory
+- Includes automatic model verification and README generation
 
 **Debug Information**: The manual download script now includes comprehensive debug messages that track:
 - Script execution flow and location tracking
@@ -195,6 +211,25 @@ If you encounter AI initialization errors:
 - **"Automatic recovery failed"**: Clear cache manually and restart app
 - **Network issues**: Check firewall settings for Hugging Face access
 - **Disk space**: Ensure 5GB+ free space for model downloads
+
+### Advanced Model Conversion
+
+For users who want to convert GGUF models to MLX format manually:
+
+```bash
+# Install required Python package
+pip install mlx-lm
+
+# Run the conversion script
+./scripts/convert_gemma.sh
+```
+
+**Features:**
+- Converts GGUF Gemma models from Hugging Face to MLX format
+- 4-bit quantization for optimal Apple Silicon performance
+- Automatic model verification and validation
+- Creates model README with performance estimates
+- Outputs to standard Web browser cache directory
 
 ## Building the Project
 

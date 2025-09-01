@@ -184,17 +184,56 @@ flowchart TD
 - **Background Validation**: Periodic model integrity checks
 - **User Preferences**: Configurable initialization behavior
 
+### Alternative Model Conversion
+- **Standalone Converter**: `scripts/convert_gemma.sh` for GGUF to MLX conversion
+- **Custom Model Support**: Convert user-provided GGUF models to MLX format
+- **Advanced Configuration**: Customizable quantization and output settings
+
 ### Advanced Coordination
 - **Inter-Process Communication**: Direct coordination between app and scripts
 - **Shared State**: Common state file for coordination
 - **Progress Sharing**: Real-time progress updates between processes
 
+## Alternative Model Conversion
+
+### Standalone GGUF to MLX Converter
+
+The project includes `scripts/convert_gemma.sh` as a standalone utility for advanced users who want to convert GGUF models to MLX format manually.
+
+#### Features
+- **GGUF to MLX Conversion**: Converts Hugging Face GGUF models to Apple Silicon optimized MLX format
+- **4-bit Quantization**: Automatic quantization for optimal performance and memory usage
+- **Dependency Checking**: Validates Python 3 and mlx-lm package availability
+- **Model Verification**: Comprehensive validation of converted model files
+- **Documentation Generation**: Creates detailed README for converted models
+
+#### Usage
+```bash
+# Install dependencies
+pip install mlx-lm
+
+# Run conversion
+./scripts/convert_gemma.sh
+```
+
+#### Configuration
+- **Source Model**: `bartowski/gemma-2-2b-it-gguf` (Hugging Face GGUF format)
+- **Output Location**: `~/Library/Caches/Web/AI/Models/gemma-2b-mlx-int4`
+- **Quantization**: 4-bit integer quantization
+- **Verification**: Automatic model file validation and size reporting
+
+#### Integration
+- **Cache Compatibility**: Outputs to standard Web browser cache directory
+- **Automatic Detection**: Converted models are automatically detected by the application
+- **Performance Optimization**: MLX format provides optimal Apple Silicon performance
+
 ## Documentation Updates
 
 ### User Documentation
-- **README.md**: Updated installation guide with smart initialization info
+- **README.md**: Updated installation guide with smart initialization info and standalone converter documentation
 - **Troubleshooting Guide**: Enhanced with coordination scenarios
 - **Manual Download Guide**: Clear instructions for manual download timing
+- **Converter Guide**: Documentation for standalone GGUF to MLX conversion
 
 ### Technical Documentation
 - **Architecture Guide**: Smart initialization flow documentation
