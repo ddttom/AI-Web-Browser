@@ -1,0 +1,37 @@
+{
+  "name": "web-browser",
+  "version": "1.0.0",
+  "description": "AI-powered web browser for macOS",
+  "author": "Tom Cranstoun <ddttom>",
+  "license": "MIT",
+  "scripts": {
+    "build": "xcodebuild -project Web.xcodeproj -scheme Web -configuration Release build -derivedDataPath ./build/DerivedData",
+    "build:debug": "xcodebuild -project Web.xcodeproj -scheme Web -configuration Debug build -derivedDataPath ./build/DerivedData",
+    "clean": "xcodebuild -project Web.xcodeproj -scheme Web clean -derivedDataPath ./build/DerivedData",
+    "clean:build": "npm run clean && npm run build",
+    "clean:all": "rm -rf ./build && xcodebuild -project Web.xcodeproj -scheme Web clean",
+    "test": "xcodebuild -project Web.xcodeproj -scheme Web -destination 'platform=macOS' test -derivedDataPath ./build/DerivedData",
+    "archive": "xcodebuild -project Web.xcodeproj -scheme Web -configuration Release archive -archivePath ./build/Web.xcarchive -derivedDataPath ./build/DerivedData",
+    "run": "npm run build:debug && open ./build/DerivedData/Build/Products/Debug/Web.app",
+    "dev": "npm run build:debug",
+    "release": "npm run clean && npm run build",
+    "kill-builds": "pkill -f xcodebuild || true"
+  },
+  "engines": {
+    "node": ">=16.0.0"
+  },
+  "os": [
+    "darwin"
+  ],
+  "keywords": [
+    "browser",
+    "macos",
+    "swift",
+    "ai",
+    "mlx"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ddttom/Web.git"
+  }
+}

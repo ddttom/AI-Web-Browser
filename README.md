@@ -49,6 +49,7 @@ https://github.com/user-attachments/assets/85629abc-5527-4345-b1a8-a988e0417c0a
 - macOS 14.0 or later
 - Apple Silicon Mac (for AI features)
 - Xcode 15.0+ (for development)
+- Node.js 16.0+ (for npm build scripts)
 
 ## Installation
 
@@ -60,17 +61,35 @@ git clone https://github.com/ddttom/AI-Web-Browser.git
 cd AI-Web-Browser
 ```
 
-2. Open the project in Xcode:
+2. **Option A: Using npm scripts (Recommended)**
 ```bash
-open Web.xcodeproj
+# Build release version
+npm run build
+
+# Build debug version
+npm run build:debug
+
+# Clean and build
+npm run clean:build
+
+# Run tests
+npm run test
+
+# Build and run debug version
+npm run run
 ```
 
-3. **Recommended**: Run the manual model download script to avoid AI initialization issues:
+3. **Option B: Using Xcode**
+```bash
+# Open in Xcode
+open Web.xcodeproj
+# Then build and run (⌘R)
+```
+
+4. **Recommended**: Run the manual model download script to avoid AI initialization issues:
    ```bash
    ./scripts/manual_model_download.sh
    ```
-
-4. Build and run (⌘R)
 
 ## Architecture
 
@@ -176,6 +195,90 @@ If you encounter AI initialization errors:
 - **"Automatic recovery failed"**: Clear cache manually and restart app
 - **Network issues**: Check firewall settings for Hugging Face access
 - **Disk space**: Ensure 5GB+ free space for model downloads
+
+## Building the Project
+
+### Quick Start
+
+```bash
+# Install dependencies (if using npm scripts)
+npm install
+
+# Build release version (recommended)
+npm run build
+
+# Build and run debug version
+npm run run
+```
+
+### Build Scripts
+
+The project includes npm scripts for convenient command-line building:
+
+| Command | Description | Use Case |
+|---------|-------------|----------|
+| `npm run build` | Build release version | Production builds, distribution |
+| `npm run build:debug` | Build debug version | Development, debugging |
+| `npm run clean` | Clean build artifacts | Before fresh builds |
+| `npm run clean:build` | Clean and build release | Ensure clean release build |
+| `npm run clean:all` | Remove all build files and clean | Fix build issues |
+| `npm run test` | Run unit tests | Continuous integration |
+| `npm run archive` | Create archive for distribution | App Store submission |
+| `npm run run` | Build debug and launch app | Quick development cycle |
+| `npm run dev` | Alias for debug build | Development workflow |
+| `npm run release` | Clean and build release | Final release preparation |
+| `npm run kill-builds` | Kill any running xcodebuild processes | Fix concurrent build issues |
+
+### Build Configurations
+
+- **Debug**: Optimized for development with debugging symbols and faster compilation
+- **Release**: Optimized for production with full optimizations and smaller binary size
+- **Archive**: Creates distributable `.xcarchive` for App Store or direct distribution
+
+### Build Output Locations
+
+- **Debug builds**: `./build/DerivedData/Build/Products/Debug/Web.app`
+- **Release builds**: `./build/DerivedData/Build/Products/Release/Web.app`
+- **Archives**: `./build/Web.xcarchive`
+
+### Build Dependencies
+
+The build process automatically resolves Swift Package Manager dependencies:
+- **MLX Swift**: Apple's machine learning framework
+- **Swift Transformers**: Hugging Face transformers for Swift
+- **Swift Collections**: Advanced collection types
+- **Swift Numerics**: Numerical computing support
+
+### Build Troubleshooting
+
+**Database Locked Error:**
+If you encounter "database is locked" errors, it means there are concurrent builds running. To fix this:
+
+1. **Kill existing builds:** `npm run kill-builds`
+2. **Clean all build data:** `npm run clean:all`
+3. **Try building again:** `npm run build`
+
+**Build Location:**
+All builds now use a local `./build/DerivedData` directory to avoid conflicts with Xcode's shared derived data location.
+
+**Common Build Issues:**
+- **Swift Package resolution fails**: Run `npm run clean:all` and try again
+- **Metal shader compilation errors**: Ensure you're on Apple Silicon Mac
+- **Memory issues during build**: Close other applications and try `npm run build` (release builds use less memory)
+
+### CI/CD Integration
+
+For continuous integration, use:
+```bash
+# Clean build for CI
+npm run clean:all && npm run build
+
+# Run tests
+npm run test
+
+# Create archive for distribution
+npm run archive
+```
 
 ## Keyboard Shortcuts
 
