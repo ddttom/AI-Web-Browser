@@ -187,8 +187,28 @@ This script converts GGUF Gemma models to MLX format for Apple Silicon optimizat
 - **Process Coordination**: Waits for manual downloads to complete before proceeding
 - **Automatic Recovery**: Detects and fixes corrupted downloads automatically
 - **Cache Management**: Built-in cache cleanup and validation tools
-- **Troubleshooting**: See [docs/Troubleshooting.md](docs/Troubleshooting.md) for detailed recovery steps</search>
-</search_and_replace>
+- **File Detection Fixes**: Resolved critical model ID mapping inconsistencies between manual downloads and app validation
+- **MLX Validation Pipeline**: Enhanced coordination between file detection and MLX model loading
+- **Troubleshooting**: See [docs/Troubleshooting.md](docs/Troubleshooting.md) for detailed recovery steps
+
+### Recent Fixes (v2.5.0)
+
+**Fixed Model Detection Issues:**
+- ✅ **Model ID Mapping**: Resolved inconsistency where manual downloads create `models--mlx-community--gemma-2-2b-it-4bit` but app searched for different formats
+- ✅ **File Detection Logic**: Enhanced `findModelDirectory()` to properly validate Hugging Face cache structure (`snapshots/main/` directory)
+- ✅ **MLX Validation Coordination**: Fixed validation pipeline to use consistent model ID formats throughout the loading process
+- ✅ **SimplifiedMLXRunner**: Added comprehensive error handling and support for both internal IDs and Hugging Face repository formats
+
+**Improved Smart Initialization:**
+- Enhanced file existence checking to use proper model configurations instead of legacy string-based IDs
+- Better coordination between manual download detection and automatic model loading
+- More detailed logging throughout the validation pipeline for easier troubleshooting
+- Proper snapshot directory validation to avoid loading incomplete downloads
+
+**Debug Improvements:**
+- Added comprehensive logging with `🔍 [CACHE DEBUG]`, `🚀 [SMART INIT]`, and `🚀 [MLX RUNNER]` prefixes for easier issue tracking
+- Enhanced error categorization to distinguish between file corruption, missing files, and validation failures
+- Better progress tracking during model loading and validation phases
 
 ### Code Standards
 

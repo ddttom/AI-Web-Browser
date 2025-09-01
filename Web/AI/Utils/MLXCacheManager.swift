@@ -533,6 +533,9 @@ class MLXCacheManager {
 
     /// Get cache directory name for a model configuration
     private func getCacheDirectoryName(for modelConfig: MLXModelConfiguration) -> String {
+        // Use the preconfigured cache directory name from the model configuration
+        // This ensures consistency with manual download script naming
+        AppLog.debug("🔍 [CACHE DEBUG] Using cache directory name from config: \(modelConfig.cacheDirectoryName)")
         return modelConfig.cacheDirectoryName
     }
 
@@ -569,7 +572,7 @@ class MLXCacheManager {
                     if fileManager.fileExists(atPath: item.path, isDirectory: &isDirectory)
                         && isDirectory.boolValue
                     {
-                        // Look for snapshots directory
+                        // Look for snapshots directory (required for HuggingFace cache structure)
                         let snapshotsDir = item.appendingPathComponent("snapshots")
                         if fileManager.fileExists(atPath: snapshotsDir.path) {
                             AppLog.debug(
@@ -590,8 +593,19 @@ class MLXCacheManager {
                                 )
                                 return latestSnapshot
                             }
+                            AppLog.debug(
+                                "🔍 [CACHE DEBUG] ❌ No valid snapshots found in snapshots directory"
+                            )
+                        } else {
+                            AppLog.debug(
+                                "🔍 [CACHE DEBUG] ❌ No snapshots directory found - this suggests incomplete/corrupted cache"
+                            )
                         }
-                        return item
+                        
+                        // Don't return the base directory if no snapshots found - indicates incomplete download
+                        AppLog.debug(
+                            "🔍 [CACHE DEBUG] ❌ Skipping directory without valid snapshots: \(fileName)"
+                        )
                     }
                 }
 
@@ -601,17 +615,21 @@ class MLXCacheManager {
                     if fileManager.fileExists(atPath: item.path, isDirectory: &isDirectory)
                         && isDirectory.boolValue
                     {
+                        AppLog.debug("🔍 [CACHE DEBUG] ✅ Found legacy model directory: \(fileName)")
                         return item
                     }
                 }
 
-                // Recursively search subdirectories
+                // Recursively search subdirectories (but avoid infinite recursion)
                 var isDirectory: ObjCBool = false
                 if fileManager.fileExists(atPath: item.path, isDirectory: &isDirectory)
-                    && isDirectory.boolValue
+                    && isDirectory.boolValue && !fileName.hasPrefix(".")
                 {
-                    if let found = await findModelDirectory(in: item, for: modelConfig) {
-                        return found
+                    // Only recurse into relevant directories to avoid performance issues
+                    if fileName.contains("models--") || fileName.contains("mlx") || fileName.contains("cache") {
+                        if let found = await findModelDirectory(in: item, for: modelConfig) {
+                            return found
+                        }
                     }
                 }
             }

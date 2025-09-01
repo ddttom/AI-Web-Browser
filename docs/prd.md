@@ -300,6 +300,100 @@ These scripts work together to provide flexible model management:
 - **API Documentation**: New methods and configuration options
 - **Error Handling Guide**: Comprehensive error scenarios and solutions
 
+## Recent Fixes and Enhancements (v2.5.0)
+
+### Critical Bug Fixes
+
+#### Model ID Mapping Inconsistency Resolution
+**Problem**: Manual download script created files in `models--mlx-community--gemma-2-2b-it-4bit/snapshots/main/` but app searched for different directory patterns, causing detection failures.
+
+**Solution**: 
+- ✅ Fixed `MLXCacheManager.getCacheDirectoryName()` to use proper model configuration cache directory names
+- ✅ Enhanced `findModelDirectory()` logic to prioritize `snapshots/main/` directory structure (used by manual downloads)
+- ✅ Added validation to ensure only complete cache structures are accepted (prevents loading incomplete downloads)
+
+#### File Detection Logic Improvements
+**Problem**: App would skip directories without proper Hugging Face cache structure validation.
+
+**Solution**:
+- ✅ Added requirement for `snapshots/` directory existence before accepting a cache directory
+- ✅ Implemented preference for `main` snapshot (used by manual downloads) over latest snapshot
+- ✅ Enhanced recursive directory search with performance optimizations
+- ✅ Added comprehensive debug logging with `🔍 [CACHE DEBUG]` prefixes
+
+#### MLX Validation Pipeline Coordination
+**Problem**: Model validation occurred after loading attempts, causing confusion about file vs. loading issues.
+
+**Solution**:
+- ✅ Updated all model loading calls to use consistent Hugging Face repository format (`mlx-community/gemma-2-2b-it-4bit`)
+- ✅ Changed validation state to `.validating` during file loading to distinguish from downloads
+- ✅ Enhanced error handling to differentiate between file detection and MLX loading issues
+- ✅ Improved coordination between `hasCompleteModelFiles()` and `SimplifiedMLXRunner.ensureLoaded()`
+
+#### SimplifiedMLXRunner Consistency
+**Problem**: Model loading logic didn't properly handle both internal model IDs and Hugging Face repository formats.
+
+**Solution**:
+- ✅ Added explicit support for Hugging Face repository format model IDs
+- ✅ Enhanced error categorization to distinguish file corruption from model loading issues
+- ✅ Comprehensive logging with `🚀 [MLX RUNNER]` prefixes for better debugging
+- ✅ Improved error messages with actionable guidance for users
+
+### Implementation Details
+
+#### Enhanced Cache Management
+```swift
+// Before: String-based model ID lookups
+let hasFiles = await MLXCacheManager.shared.hasCompleteModelFiles(for: model.modelId)
+
+// After: Model configuration-based lookups
+let hasFiles = await MLXCacheManager.shared.hasCompleteModelFiles(for: model)
+```
+
+#### Improved Model Loading Coordination
+```swift
+// Before: Inconsistent model ID formats
+try await SimplifiedMLXRunner.shared.ensureLoaded(modelId: model.modelId)
+
+// After: Consistent Hugging Face format
+try await SimplifiedMLXRunner.shared.ensureLoaded(modelId: model.huggingFaceRepo)
+```
+
+#### Validated Cache Structure
+```swift
+// Enhanced validation ensures complete cache structure
+let snapshotsDir = item.appendingPathComponent("snapshots")
+if fileManager.fileExists(atPath: snapshotsDir.path) {
+    let mainSnapshotDir = snapshotsDir.appendingPathComponent("main")
+    if fileManager.fileExists(atPath: mainSnapshotDir.path) {
+        return mainSnapshotDir  // Prefer manual download location
+    }
+}
+```
+
+### Validation and Testing
+
+#### Test Scenarios Validated
+1. ✅ **Fresh Installation**: Automatic download works correctly
+2. ✅ **Manual Download Coordination**: App waits and loads manual files  
+3. ✅ **Existing Model Detection**: Fast loading of pre-downloaded models
+4. ✅ **Cache Structure Validation**: Proper snapshot directory validation
+5. ✅ **Model ID Format Consistency**: Both internal and Hugging Face formats supported
+6. ✅ **Error Differentiation**: Clear distinction between file and validation errors
+
+#### Debug Logging Enhancements
+- `🔍 [CACHE DEBUG]`: File detection and directory validation
+- `🚀 [SMART INIT]`: Startup initialization flow
+- `🚀 [MLX RUNNER]`: Model loading and configuration
+- `📥 [DOWNLOAD]`: Download process validation
+- Error categorization with specific guidance
+
+### Performance Impact
+- **File Detection**: Improved efficiency with targeted directory searches
+- **Cache Validation**: Faster validation by checking structure before file enumeration  
+- **Model Loading**: Reduced redundant validation calls
+- **Error Recovery**: Better error differentiation reduces unnecessary retry attempts
+
 ## Conclusion
 
-The intelligent AI initialization strategy maintains the desired startup AI initialization while eliminating conflicts with manual downloads. This provides users with a reliable, predictable experience that respects their choice of download method while ensuring AI features are always available when needed.
+The intelligent AI initialization strategy maintains the desired startup AI initialization while eliminating conflicts with manual downloads. The recent fixes resolve critical model detection issues, ensuring reliable coordination between manual download scripts and application model loading. This provides users with a robust, predictable experience that respects their choice of download method while ensuring AI features are always available when needed.
