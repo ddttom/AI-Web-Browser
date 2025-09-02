@@ -8,8 +8,11 @@ import WebKit
 class AIAssistant: ObservableObject {
     
     // MARK: - Singleton
-    static let shared = AIAssistant()
-    private static var isSharedInitialized = false
+    static let shared: AIAssistant = {
+        AppLog.debug("🚀 [SINGLETON] AIAssistant SINGLETON INITIALIZATION STARTED")
+        NSLog("🚀 [SINGLETON] AIAssistant SINGLETON INITIALIZATION STARTED")
+        return AIAssistant()
+    }()
 
     // MARK: - Published Properties (Main Actor for UI Updates)
 
@@ -44,14 +47,6 @@ class AIAssistant: ObservableObject {
     // MARK: - Initialization
 
     private init(tabManager: TabManager? = nil) {
-        guard !AIAssistant.isSharedInitialized else {
-            AppLog.debug("🛑 [SINGLETON] AIAssistant singleton already initialized - skipping duplicate init")
-            NSLog("🛑 [SINGLETON] AIAssistant singleton already initialized - preventing duplicate")
-            return
-        }
-        AIAssistant.isSharedInitialized = true
-        AppLog.debug("🚀 [SINGLETON] AIAssistant SINGLETON INITIALIZATION STARTED")
-        NSLog("🚀 [SINGLETON] AIAssistant SINGLETON INITIALIZATION STARTED")
         
         // Initialize dependencies
         self.mlxWrapper = MLXWrapper()
@@ -441,7 +436,7 @@ class AIAssistant: ObservableObject {
                     return
                 }
                 let agent = PageAgent(webView: webView)
-                var adjusted = Self.postProcessPlanForSites(fallback)
+                let adjusted = Self.postProcessPlanForSites(fallback)
 
                 // Passive observe-act enhancement: if the query implies a choice (pick/best/funniest),
                 // replace a generic click with an interactive selection driven by element summaries.
@@ -546,7 +541,7 @@ class AIAssistant: ObservableObject {
             NSLog("❌ Agent: Planning failed with error: \(error.localizedDescription)")
             await MainActor.run {
                 // Surface a visible failure row instead of an empty timeline
-                var failureStep = PageAction(type: .askUser)
+                let failureStep = PageAction(type: .askUser)
                 let failure = AgentStep(
                     id: failureStep.id, action: failureStep, state: .failure,
                     message: "planning failed")
@@ -566,7 +561,7 @@ class AIAssistant: ObservableObject {
         let (maybeWebView, host) = await MainActor.run { () -> (WKWebView?, String?) in
             (self.tabManager?.activeTab?.webView, self.tabManager?.activeTab?.url?.host)
         }
-        guard let webView = maybeWebView else { return }
+        guard maybeWebView != nil else { return }
 
         // Initialize timeline
         await MainActor.run {
@@ -1518,7 +1513,7 @@ class AIAssistant: ObservableObject {
         if q.hasPrefix("search ") || q.hasPrefix("search for ") || q.hasPrefix("look up ")
             || q.hasPrefix("find ")
         {
-            var term =
+            let term =
                 q
                 .replacingOccurrences(of: "search for ", with: "")
                 .replacingOccurrences(of: "search ", with: "")
