@@ -111,14 +111,16 @@ These errors occur when the MLX framework's Hugging Face model download process 
 
 **Solutions:**
 
-#### Intelligent Startup Coordination (New)
-The app now includes **smart startup AI initialization** that coordinates with manual downloads:
-1. **Manual Download Detection**: Automatically detects active manual download processes
-2. **Graceful Waiting**: Pauses automatic initialization when manual downloads are active
-3. **Existing Model Recognition**: Instantly recognizes and loads pre-downloaded models
-4. **Conflict Prevention**: Avoids cache interference during manual download processes
-5. **Timeout Handling**: Falls back to automatic download if manual process stalls
-6. **Process Monitoring**: Real-time monitoring of manual download progress
+#### Enhanced Smart Initialization (v2.6.0)
+The app now includes **advanced smart startup AI initialization** with significant improvements:
+1. **Reliable Process Detection**: Enhanced manual download detection using `pgrep` for better reliability and performance
+2. **Detailed Debug Logging**: Comprehensive debug messages with timestamps for easier troubleshooting
+3. **Improved Coordination**: Better synchronization between automatic and manual download processes
+4. **Model ID Mapping Fixes**: Resolved critical inconsistencies between manual downloads and app validation
+5. **Cache Structure Validation**: Enhanced validation of Hugging Face cache structure (`snapshots/main/` directory)
+6. **Lock File Management**: Proper handling of download locks to prevent conflicts
+7. **Timeout Handling**: Graceful fallback with improved error messaging
+8. **Process Status Monitoring**: Real-time monitoring with detailed status reporting
 
 #### Automatic Recovery (Enhanced)
 The app also includes enhanced automatic recovery mechanisms:
@@ -134,24 +136,39 @@ The app also includes enhanced automatic recovery mechanisms:
 **When Automatic Recovery Fails:**
 If you see the error "Automatic recovery failed: Model recovery failed - files still corrupted after cleanup", follow these steps:
 
-**Option 1: Automated Script (Recommended)**
-Run the provided manual download script:
-```bash
-# Navigate to the project directory
-cd /path/to/Web
+**Option 1: Enhanced Automated Scripts (Recommended)**
 
-# Run the manual download script
-./scripts/manual_model_download.sh
+**Step 1: Verify Current State**
+```bash
+# Check if models exist and are accessible
+./scripts/verify_model.sh
 ```
 
-This script will:
-- Clean existing corrupted cache
-- Download all required model files directly from Hugging Face
-- Verify file integrity
-- Provide clear status updates
+**Step 2: Clean if Needed**
+```bash
+# Remove corrupted or incomplete files with confirmation
+./scripts/clear_model.sh
+```
 
-**Option 2: Manual Steps**</search>
-</search_and_replace>
+**Step 3: Fresh Download**
+```bash
+# Download with force flag to ensure clean files
+./scripts/manual_model_download.sh -f
+```
+
+**Step 4: Verify Success**
+```bash
+# Confirm download was successful
+./scripts/verify_model.sh
+```
+
+These enhanced scripts provide:
+- **Comprehensive validation**: File existence, sizes, accessibility, and directory structure
+- **Safe cleanup**: Confirmation prompts and detailed file information before deletion
+- **Reliable downloads**: Enhanced process detection and lock file management
+- **Clear feedback**: Detailed debug logging with timestamps and status updates
+
+**Option 2: Manual Steps** (if automated scripts fail)
 
 1. **Complete Cache Reset:**
    ```bash
@@ -267,15 +284,41 @@ rm -rf ~/Library/Caches/com.web.Web/
 - Check disk space and permissions
 - Try running app with different user account if needed
 
+### Fixed Model Detection Issues (v2.6.0)
+
+**Critical Fixes Applied:**
+
+1. **Model ID Mapping Consistency**: 
+   - Fixed inconsistency where manual downloads create `models--mlx-community--gemma-2-2b-it-4bit` but app searched for different formats
+   - Enhanced `SimplifiedMLXRunner` to support both internal and Hugging Face repository formats
+
+2. **Cache Structure Validation**:
+   - Improved `findModelDirectory()` to properly validate Hugging Face cache structure 
+   - Added verification of `snapshots/main/` directory presence and completeness
+   - Enhanced cache validation to avoid loading incomplete downloads
+
+3. **Process Detection Reliability**:
+   - Replaced unreliable process detection with robust `pgrep` implementation
+   - Added detailed debug logging for manual download activity checks
+   - Improved coordination between automatic and manual download processes
+
+4. **Enhanced Error Categorization**:
+   - Clear distinction between file corruption, missing files, and validation failures
+   - Improved error messages with specific guidance for each failure type
+   - Better progress tracking during model loading and validation phases
+
 ### Model Download Progress Monitoring
 
-The app provides detailed progress information:
-- **Checking**: Validating existing cache
-- **Downloading**: Active download with percentage
-- **Validating**: Verifying downloaded files
-- **Ready**: Model loaded and available
+The app provides detailed progress information with enhanced debugging:
+- **🔍 [CACHE DEBUG]**: Cache validation and cleanup operations
+- **🚀 [SMART INIT]**: Smart initialization coordination status  
+- **🚀 [MLX RUNNER]**: Model loading and MLX validation steps
+- **Checking**: Validating existing cache with enhanced structure validation
+- **Downloading**: Active download with percentage and process coordination
+- **Validating**: Comprehensive file verification and accessibility checks
+- **Ready**: Model loaded and available with confirmed accessibility
 
-If stuck in any state for >5 minutes, restart the app to trigger recovery.
+If stuck in any state for >3 minutes (improved timeout), restart the app to trigger enhanced recovery.
 
 ## Swift Compilation Warnings
 
