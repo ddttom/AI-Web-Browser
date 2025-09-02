@@ -14,7 +14,7 @@ struct WebContentView: View {
     init(tab: Tab, tabManager: TabManager) {
         self._tab = ObservedObject(wrappedValue: tab)
         self.tabManager = tabManager
-        self._aiAssistant = StateObject(wrappedValue: AIAssistant(tabManager: tabManager))
+        self._aiAssistant = StateObject(wrappedValue: AIAssistant.shared)
     }
 
     var body: some View {

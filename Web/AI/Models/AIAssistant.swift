@@ -6,6 +6,10 @@ import WebKit
 /// Integrates MLX framework with context management and conversation handling
 @MainActor
 class AIAssistant: ObservableObject {
+    
+    // MARK: - Singleton
+    static let shared = AIAssistant()
+    private static var isSharedInitialized = false
 
     // MARK: - Published Properties (Main Actor for UI Updates)
 
@@ -39,7 +43,12 @@ class AIAssistant: ObservableObject {
 
     // MARK: - Initialization
 
-    init(tabManager: TabManager? = nil) {
+    private init(tabManager: TabManager? = nil) {
+        guard !AIAssistant.isSharedInitialized else {
+            return
+        }
+        AIAssistant.isSharedInitialized = true
+        
         // Initialize dependencies
         self.mlxWrapper = MLXWrapper()
         self.privacyManager = PrivacyManager()

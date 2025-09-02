@@ -33,7 +33,7 @@ struct AISidebar: View {
     // Initializer
     init(tabManager: TabManager) {
         self.tabManager = tabManager
-        self._aiAssistant = StateObject(wrappedValue: AIAssistant(tabManager: tabManager))
+        self._aiAssistant = StateObject(wrappedValue: AIAssistant.shared)
     }
 
     // MARK: - Agent Timeline Area

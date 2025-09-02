@@ -139,6 +139,12 @@ class MLXModelService: ObservableObject {
             return
         }
 
+        // If initialization is already in progress, just wait
+        if Self.isInitializationInProgress {
+            AppLog.debug("🔥 [INIT AI] Smart initialization already in progress - waiting...")
+            return
+        }
+
         // If currently downloading, just wait
         if downloadState == .downloading {
             AppLog.debug("🔥 [INIT AI] MLX AI model download in progress - waiting…")
