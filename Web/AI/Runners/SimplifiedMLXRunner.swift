@@ -30,9 +30,14 @@ final class SimplifiedMLXRunner: ObservableObject {
     /// Ensure model is loaded using ModelRegistry ID
     /// AI THREADING FIX: Runs on background thread to prevent UI blocking
     func ensureLoaded(modelId: String = "gemma3_2B_4bit") async throws {
+        AppLog.debug("🚀 [MLX RUNNER] === ensureLoaded() called ===")
+        AppLog.debug("🚀 [MLX RUNNER] Requested model ID: \(modelId)")
+        AppLog.debug("🚀 [MLX RUNNER] Current model ID: \(currentModelId ?? "nil")")
+        AppLog.debug("🚀 [MLX RUNNER] Model container loaded: \(modelContainer != nil)")
+        
         // If already loaded with same model, return immediately
         if modelContainer != nil && currentModelId == modelId {
-            // MLX model already loaded
+            AppLog.debug("🚀 [MLX RUNNER] ✅ Model already loaded - no action needed")
             return
         }
 
@@ -48,30 +53,49 @@ final class SimplifiedMLXRunner: ObservableObject {
             }
         }
 
-        if AppLog.isVerboseEnabled { AppLog.debug("Loading MLX model: \(modelId)") }
+        AppLog.debug("🚀 [MLX RUNNER] Starting model load process for: \(modelId)")
 
         do {
             // Use MLX-Swift ModelRegistry for predefined models
             let modelConfig: ModelConfiguration
+            AppLog.debug("🚀 [MLX RUNNER] Determining model configuration for: \(modelId)")
+            
             switch modelId {
             case "llama3_2_1B_4bit":
+                AppLog.debug("🚀 [MLX RUNNER] Using registry config for llama3_2_1B_4bit")
                 modelConfig = LLMRegistry.llama3_2_1B_4bit
             case "llama3_2_3B_4bit":
+                AppLog.debug("🚀 [MLX RUNNER] Using registry config for llama3_2_3B_4bit")
                 modelConfig = LLMRegistry.llama3_2_3B_4bit
             case "gemma3_2B_4bit":
+                AppLog.debug("🚀 [MLX RUNNER] Using hardcoded config for gemma3_2B_4bit")
                 modelConfig = ModelConfiguration(id: "mlx-community/gemma-2-2b-it-4bit")
-                if AppLog.isVerboseEnabled {
-                    AppLog.debug("Using MLX model: mlx-community/gemma-2-2b-it-4bit")
-                }
+                AppLog.debug("🚀 [MLX RUNNER] Model config ID: mlx-community/gemma-2-2b-it-4bit")
             case "gemma3_9B_4bit":
+                AppLog.debug("🚀 [MLX RUNNER] Using hardcoded config for gemma3_9B_4bit")
                 modelConfig = ModelConfiguration(id: "mlx-community/gemma-2-9b-it-4bit")
+            case "mlx-community/gemma-2-2b-it-4bit":
+                AppLog.debug("🚀 [MLX RUNNER] Using direct Hugging Face repo format for gemma-2-2b-it-4bit")
+                modelConfig = ModelConfiguration(id: modelId)
+            case "mlx-community/gemma-2-9b-it-4bit":
+                AppLog.debug("🚀 [MLX RUNNER] Using direct Hugging Face repo format for gemma-2-9b-it-4bit")
+                modelConfig = ModelConfiguration(id: modelId)
+            case "mlx-community/Llama-3.2-1B-Instruct-4bit":
+                AppLog.debug("🚀 [MLX RUNNER] Using direct Hugging Face repo format for Llama-3.2-1B-Instruct-4bit")
+                modelConfig = ModelConfiguration(id: modelId)
+            case "mlx-community/Llama-3.2-3B-Instruct-4bit":
+                AppLog.debug("🚀 [MLX RUNNER] Using direct Hugging Face repo format for Llama-3.2-3B-Instruct-4bit")
+                modelConfig = ModelConfiguration(id: modelId)
             default:
-                // Fallback to custom configuration
+                AppLog.debug("🚀 [MLX RUNNER] Using fallback custom configuration for: \(modelId)")
                 modelConfig = ModelConfiguration(id: modelId)
             }
+            
+            AppLog.debug("🚀 [MLX RUNNER] Final model configuration ID: \(modelConfig.id)")
 
             // Enhanced error handling with detailed logging
-            AppLog.debug("Starting model load for configuration: \(modelConfig.id)")
+            AppLog.debug("🚀 [MLX RUNNER] Starting LLMModelFactory.loadContainer() call")
+            AppLog.debug("🚀 [MLX RUNNER] Configuration ID: \(modelConfig.id)")
 
             // AI THREADING FIX: Model loading with proper thread management and enhanced error handling
             let model = try await LLMModelFactory.shared.loadContainer(
@@ -81,10 +105,7 @@ final class SimplifiedMLXRunner: ObservableObject {
                 Task { @MainActor in
                     self.loadProgress = Float(progress.fractionCompleted)
                     if Int(progress.fractionCompleted * 100) % 10 == 0 {  // Only log every 10%
-                        if AppLog.isVerboseEnabled {
-                            AppLog.debug(
-                                "MLX model download: \(Int(progress.fractionCompleted * 100))%")
-                        }
+                        AppLog.debug("🚀 [MLX RUNNER] Model loading progress: \(Int(progress.fractionCompleted * 100))%")
                     }
                 }
             }
@@ -97,29 +118,43 @@ final class SimplifiedMLXRunner: ObservableObject {
                 self.loadProgress = 1.0
             }
 
-            AppLog.debug("MLX model loaded successfully: \(modelId)")
+            AppLog.debug("🚀 [MLX RUNNER] ✅ Model loaded successfully: \(modelId)")
+            AppLog.debug("🚀 [MLX RUNNER] Model container created and stored")
 
         } catch {
-            AppLog.error("Failed to load MLX model: \(error.localizedDescription)")
-
+            AppLog.error("🚀 [MLX RUNNER] ❌ Failed to load MLX model: \(error.localizedDescription)")
+            AppLog.error("🚀 [MLX RUNNER] Requested model ID: \(modelId)")
+            AppLog.error("🚀 [MLX RUNNER] Error type: \(type(of: error))")
+            
             // Enhanced error reporting with specific guidance
             let enhancedError: Error
-            if error.localizedDescription.contains("couldn't be moved") {
+            let errorDescription = error.localizedDescription.lowercased()
+            
+            if errorDescription.contains("couldn't be moved") || errorDescription.contains("file not found") {
+                AppLog.error("🚀 [MLX RUNNER] 🔍 ERROR CATEGORY: File/Download Issue")
                 enhancedError = SimplifiedMLXError.downloadCorrupted(
-                    "Model download was interrupted. The cache will be cleaned up automatically on next attempt. "
+                    "Model download was interrupted or files are missing. The cache will be cleaned up automatically on next attempt. "
                         + "Please check your network connection and try again."
                 )
-            } else if error.localizedDescription.contains("config.json") {
+            } else if errorDescription.contains("config.json") {
+                AppLog.error("🚀 [MLX RUNNER] 🔍 ERROR CATEGORY: Configuration Missing")
                 enhancedError = SimplifiedMLXError.configurationMissing(
                     "Model configuration files are missing or corrupted. "
                         + "The app will attempt to re-download the model automatically."
                 )
-            } else if error.localizedDescription.contains("tokenizer") {
+            } else if errorDescription.contains("tokenizer") {
+                AppLog.error("🚀 [MLX RUNNER] 🔍 ERROR CATEGORY: Tokenizer Corruption")
                 enhancedError = SimplifiedMLXError.tokenizerCorrupted(
                     "Model tokenizer files are corrupted. "
                         + "This usually happens due to interrupted downloads. The cache will be cleaned up automatically."
                 )
+            } else if errorDescription.contains("model") && errorDescription.contains("not") && errorDescription.contains("found") {
+                AppLog.error("🚀 [MLX RUNNER] 🔍 ERROR CATEGORY: Model Not Found")
+                enhancedError = SimplifiedMLXError.configurationMissing(
+                    "Model files not found in expected location. This suggests a mismatch between manual download location and app expectations."
+                )
             } else {
+                AppLog.error("🚀 [MLX RUNNER] 🔍 ERROR CATEGORY: Other/Unknown")
                 enhancedError = SimplifiedMLXError.generationFailed(error.localizedDescription)
             }
 

@@ -270,15 +270,14 @@ class MLXModelService: ObservableObject {
             await waitForManualDownloadCompletion(model: model)
             return
         } else {
-            AppLog.debug("🚀 [SMART INIT] ✅ No manual download active - proceeding with file check")
+            AppLog.debug("🚀 [SMART INIT] ✅ No manual download active - proceeding to Step 2")
         }
 
-        // Step 2: Quick check for complete model files (without full validation)
+        // Step 2: Check for complete model files using the proper model configuration
         AppLog.debug("🚀 [SMART INIT] Step 2: Checking for complete model files...")
-        AppLog.debug("🚀 [SMART INIT] Calling hasCompleteModelFiles for modelId: \(model.modelId)")
+        AppLog.debug("🚀 [SMART INIT] Calling hasCompleteModelFiles with model configuration: \(model.modelId)")
 
-        let hasCompleteFiles = await MLXCacheManager.shared.hasCompleteModelFiles(
-            for: model.modelId)
+        let hasCompleteFiles = await MLXCacheManager.shared.hasCompleteModelFiles(for: model)
         AppLog.debug("🚀 [SMART INIT] hasCompleteModelFiles result: \(hasCompleteFiles)")
 
         if hasCompleteFiles {
@@ -288,9 +287,11 @@ class MLXModelService: ObservableObject {
 
             do {
                 // Try to load the existing model without triggering downloads
-                downloadState = .downloading
+                downloadState = .validating
                 downloadProgress = 0.5  // Start at 50% since files exist
 
+                AppLog.debug("🚀 [SMART INIT] Loading model with Hugging Face repo format: \(model.huggingFaceRepo)")
+                
                 // Use the Hugging Face repository format for MLX loading
                 try await SimplifiedMLXRunner.shared.ensureLoaded(modelId: model.huggingFaceRepo)
 
@@ -298,15 +299,23 @@ class MLXModelService: ObservableObject {
                 downloadState = .ready
                 downloadProgress = 1.0
 
-                AppLog.debug("Successfully loaded existing model: \(model.name)")
+                AppLog.debug("🚀 [SMART INIT] ✅ Successfully loaded existing model: \(model.name)")
                 return
 
             } catch {
                 AppLog.debug(
-                    "Failed to load existing model, will need fresh download: \(error.localizedDescription)"
+                    "🚀 [SMART INIT] ❌ Failed to load existing model: \(error.localizedDescription)"
                 )
+                AppLog.debug("🚀 [SMART INIT] Error suggests files exist but MLX validation failed")
+                AppLog.debug("🚀 [SMART INIT] Will attempt fresh download to resolve validation issues")
+                
+                // Reset state for fresh download attempt
+                downloadState = .notStarted
+                downloadProgress = 0.0
                 // Fall through to standard initialization
             }
+        } else {
+            AppLog.debug("🚀 [SMART INIT] ❌ No complete model files found")
         }
 
         // Step 3: No existing model found, proceed with standard initialization
@@ -329,15 +338,16 @@ class MLXModelService: ObservableObject {
                 // Give a moment for file system to settle
                 try? await Task.sleep(nanoseconds: 2_000_000_000)  // 2 seconds
 
-                // Check if model files are now available
-                if await MLXCacheManager.shared.hasCompleteModelFiles(for: model.modelId) {
+                // Check if model files are now available using the proper model configuration
+                if await MLXCacheManager.shared.hasCompleteModelFiles(for: model) {
                     AppLog.debug("Manual download successful - loading model")
 
                     do {
-                        downloadState = .downloading
+                        downloadState = .validating
                         downloadProgress = 0.8  // Start high since files exist
 
-                        try await SimplifiedMLXRunner.shared.ensureLoaded(modelId: model.modelId)
+                        AppLog.debug("Loading manually downloaded model with Hugging Face repo format: \(model.huggingFaceRepo)")
+                        try await SimplifiedMLXRunner.shared.ensureLoaded(modelId: model.huggingFaceRepo)
 
                         isModelReady = true
                         downloadState = .ready
@@ -401,10 +411,11 @@ class MLXModelService: ObservableObject {
                 AppLog.debug("Found valid cached model files for: \(model.name)")
 
                 // Try to load the existing model
-                downloadState = .downloading
+                downloadState = .validating
                 downloadProgress = 0.5  // Start at 50% since files exist
 
-                try await SimplifiedMLXRunner.shared.ensureLoaded(modelId: model.modelId)
+                AppLog.debug("Loading cached model with Hugging Face repo format: \(model.huggingFaceRepo)")
+                try await SimplifiedMLXRunner.shared.ensureLoaded(modelId: model.huggingFaceRepo)
 
                 isModelReady = true
                 downloadState = .ready
@@ -569,17 +580,16 @@ class MLXModelService: ObservableObject {
 
                 // CRITICAL: Check if files already exist before attempting download
                 AppLog.debug("📥 [DOWNLOAD] Step 1: Checking for existing files before download...")
-                let existingFiles = await MLXCacheManager.shared.hasCompleteModelFiles(
-                    for: model.modelId)
+                let existingFiles = await MLXCacheManager.shared.hasCompleteModelFiles(for: model)
                 AppLog.debug("📥 [DOWNLOAD] Existing files check result: \(existingFiles)")
 
                 if existingFiles {
                     AppLog.debug("📥 [DOWNLOAD] ✅ FILES ALREADY EXIST - Should not be downloading!")
                     AppLog.debug("📥 [DOWNLOAD] Attempting to load existing files instead...")
 
-                    // Try to load existing files
-                    try await SimplifiedMLXRunner.shared.ensureLoaded(
-                        modelId: model.huggingFaceRepo)
+                    // Try to load existing files using proper Hugging Face format
+                    AppLog.debug("📥 [DOWNLOAD] Loading existing model with Hugging Face repo format: \(model.huggingFaceRepo)")
+                    try await SimplifiedMLXRunner.shared.ensureLoaded(modelId: model.huggingFaceRepo)
 
                     // If successful, mark as ready
                     isModelReady = true
@@ -642,8 +652,7 @@ class MLXModelService: ObservableObject {
                     AppLog.error("📥 [DOWNLOAD] This suggests files exist but are invalid")
 
                     // Perform detailed file integrity check
-                    let hasFiles = await MLXCacheManager.shared.hasCompleteModelFiles(
-                        for: model.modelId)
+                    let hasFiles = await MLXCacheManager.shared.hasCompleteModelFiles(for: model)
                     AppLog.error("📥 [DOWNLOAD] hasCompleteModelFiles result: \(hasFiles)")
 
                 } else {
@@ -718,7 +727,8 @@ class MLXModelService: ObservableObject {
         }
 
         // Start the actual model loading - this will update loadProgress automatically
-        try await SimplifiedMLXRunner.shared.ensureLoaded(modelId: model.modelId)
+        AppLog.debug("📥 [DOWNLOAD VALIDATION] Loading model with Hugging Face repo format: \(model.huggingFaceRepo)")
+        try await SimplifiedMLXRunner.shared.ensureLoaded(modelId: model.huggingFaceRepo)
 
         // Cancel the progress monitoring
         downloadTask?.cancel()

@@ -97,9 +97,10 @@ ToolRegistry.swift      // Available tools management
 #### MLX Integration
 ```swift
 MLXRunner.swift           // Core MLX model execution
-SimplifiedMLXRunner.swift // Streamlined inference
+SimplifiedMLXRunner.swift // Streamlined inference with enhanced error handling
 MLXWrapper.swift          // MLX framework wrapper
-MLXModelService.swift     // Model management
+MLXModelService.swift     // Model management with smart initialization
+MLXCacheManager.swift     // Advanced cache management and validation
 ```
 
 ### 2. **Web Engine Layer**
@@ -181,10 +182,12 @@ Request → Security Monitor → Certificate Validation → CSP Check → Safe B
 ## AI Integration Details
 
 ### Local AI Processing
-- **Framework**: Apple MLX for Apple Silicon optimization
-- **Models**: Gemma and compatible language models
-- **Privacy**: All processing happens on-device
-- **Performance**: Hardware-accelerated inference
+- **Framework**: Apple MLX for Apple Silicon optimization with enhanced model loading
+- **Models**: Gemma 2 2B (4-bit quantized) and compatible language models
+- **Privacy**: All processing happens on-device with no external data transmission
+- **Performance**: Hardware-accelerated inference with smart initialization coordination
+- **Cache Management**: Advanced cache validation and cleanup with model detection fixes
+- **Recovery**: Automatic error recovery with comprehensive troubleshooting tools
 
 ### Cloud AI Integration
 - **BYOK (Bring Your Own Key)** approach

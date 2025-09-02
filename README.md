@@ -154,14 +154,25 @@ The app now includes **intelligent AI initialization** that coordinates with man
 # Force mode - re-downloads all files regardless of existing files
 ./scripts/manual_model_download.sh -f
 
-# Help and usage information
+# Help and usage information  
 ./scripts/manual_model_download.sh -h
 ```
 
-**Model Management Script**:
+The script now includes:
+- **Intelligent Skip Logic**: Automatically detects existing valid downloads
+- **Force Download Option**: `-f` flag forces fresh download even if files exist
+- **Enhanced Process Detection**: Uses reliable `pgrep` for detecting concurrent downloads
+- **Comprehensive Logging**: Detailed debug messages with timestamps and status tracking
+- **Lock File Management**: Prevents concurrent download conflicts
+- **Progress Validation**: Verifies download integrity before completion
+
+**Model Management Scripts**:
 ```bash
-# Clear downloaded models (useful for testing/troubleshooting)
+# Clear downloaded models (enhanced with safety features)
 ./scripts/clear_model.sh
+
+# Verify model files and accessibility (new diagnostic tool)
+./scripts/verify_model.sh
 ```
 
 **Standalone Model Converter** (for advanced users):
@@ -187,8 +198,30 @@ This script converts GGUF Gemma models to MLX format for Apple Silicon optimizat
 - **Process Coordination**: Waits for manual downloads to complete before proceeding
 - **Automatic Recovery**: Detects and fixes corrupted downloads automatically
 - **Cache Management**: Built-in cache cleanup and validation tools
-- **Troubleshooting**: See [docs/Troubleshooting.md](docs/Troubleshooting.md) for detailed recovery steps</search>
-</search_and_replace>
+- **File Detection Fixes**: Resolved critical model ID mapping inconsistencies between manual downloads and app validation
+- **MLX Validation Pipeline**: Enhanced coordination between file detection and MLX model loading
+- **Troubleshooting**: See [docs/Troubleshooting.md](docs/Troubleshooting.md) for detailed recovery steps
+
+### Recent Fixes (v2.6.0)
+
+**Enhanced Model Detection & Smart Initialization:**
+- ✅ **Model ID Mapping Fixes**: Resolved critical inconsistencies between manual downloads (`models--mlx-community--gemma-2-2b-it-4bit`) and app validation
+- ✅ **Improved File Detection**: Enhanced `findModelDirectory()` with proper Hugging Face cache structure validation (`snapshots/main/` directory)
+- ✅ **Smart Download Coordination**: Enhanced manual download detection with detailed debug logs and reliable process checking using `pgrep`
+- ✅ **MLX Validation Pipeline**: Fixed coordination to use consistent model ID formats throughout the loading process
+- ✅ **SimplifiedMLXRunner**: Added comprehensive error handling supporting both internal and Hugging Face repository formats
+
+**Advanced Smart Initialization Features:**
+- **Process Detection**: Intelligent detection of active manual download processes with timeout handling
+- **Cache Coordination**: Prevents conflicts between automatic and manual download processes
+- **Enhanced Logging**: Comprehensive debug messages with `🔍 [CACHE DEBUG]`, `🚀 [SMART INIT]`, and `🚀 [MLX RUNNER]` prefixes
+- **File Validation**: Proper snapshot directory validation to avoid loading incomplete downloads
+- **Error Categorization**: Distinguishes between file corruption, missing files, and validation failures
+
+**New Troubleshooting Tools:**
+- **Model Verification Script** (`verify_model.sh`): Comprehensive model file validation and accessibility checking
+- **Enhanced Clear Script** (`clear_model.sh`): Improved model cache cleanup with detailed file information and confirmation
+- **Standalone Converter** (`convert_gemma.sh`): GGUF to MLX format conversion for advanced users
 
 ### Code Standards
 
@@ -252,32 +285,53 @@ If you encounter AI initialization errors:
 
 ### Enhanced Troubleshooting Scripts
 
-**Model Verification Script**:
+**Model Verification Script** (NEW):
 ```bash
 ./scripts/verify_model.sh
 ```
-This script checks:
-- Directory structure and permissions
-- File existence and sizes
-- File readability and accessibility
-- Path consistency between script and app expectations
+This script provides comprehensive validation:
+- Directory structure and permissions verification
+- File existence, sizes, and accessibility checking
+- Path consistency validation between scripts and app expectations
+- Detailed debug output with timestamps and status information
+
+**Enhanced Model Clearing Script**:
+```bash
+./scripts/clear_model.sh
+```
+Improved features:
+- Shows detailed file information before deletion (sizes, counts)
+- Calculates total space to be freed
+- Provides confirmation prompts for safety
+- Removes lock files and incomplete downloads
+- Cleans up empty directories automatically
 
 **Complete Model Management Workflow**:
 ```bash
-# 1. Verify current state
+# 1. Verify current model state
 ./scripts/verify_model.sh
 
-# 2. Clear if needed
+# 2. Clear corrupted models if needed
 ./scripts/clear_model.sh
 
-# 3. Download fresh files
+# 3. Download fresh files (force mode ensures clean download)
 ./scripts/manual_model_download.sh -f
 
-# 4. Verify again
+# 4. Verify successful download
 ./scripts/verify_model.sh
 
-# 5. Start app with enhanced debug logging
+# 5. Start app - should now detect models correctly
 ```
+
+**Advanced: Standalone Model Conversion**:
+```bash
+./scripts/convert_gemma.sh
+```
+For users wanting to convert GGUF models to MLX format:
+- Converts from Hugging Face GGUF models to optimized MLX format
+- Includes 4-bit quantization for Apple Silicon optimization
+- Automatic model verification and README generation
+- Outputs to standard Web browser cache directory
 
 ### Advanced Model Conversion
 
