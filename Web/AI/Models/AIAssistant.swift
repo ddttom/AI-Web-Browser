@@ -45,9 +45,13 @@ class AIAssistant: ObservableObject {
 
     private init(tabManager: TabManager? = nil) {
         guard !AIAssistant.isSharedInitialized else {
+            AppLog.debug("🛑 [SINGLETON] AIAssistant singleton already initialized - skipping duplicate init")
+            NSLog("🛑 [SINGLETON] AIAssistant singleton already initialized - preventing duplicate")
             return
         }
         AIAssistant.isSharedInitialized = true
+        AppLog.debug("🚀 [SINGLETON] AIAssistant SINGLETON INITIALIZATION STARTED")
+        NSLog("🚀 [SINGLETON] AIAssistant SINGLETON INITIALIZATION STARTED")
         
         // Initialize dependencies
         self.mlxWrapper = MLXWrapper()
@@ -70,7 +74,8 @@ class AIAssistant: ObservableObject {
         )
 
         // Set up bindings - will be called async in initialize
-        AppLog.debug("AI Assistant init: framework=\(aiConfiguration.framework)")
+        AppLog.debug("🚀 [SINGLETON] AIAssistant singleton init completed: framework=\(aiConfiguration.framework)")
+        NSLog("🚀 [SINGLETON] AIAssistant singleton init completed")
     }
 
     // MARK: - Public Interface

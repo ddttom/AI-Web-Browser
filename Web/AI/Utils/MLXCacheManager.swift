@@ -22,6 +22,8 @@ class MLXCacheManager {
         if let cached = _cachedDirectories,
            let lastCheck = lastDirectoryCheck,
            now.timeIntervalSince(lastCheck) < directoryCheckThreshold {
+            let timeSinceLastCheck = now.timeIntervalSince(lastCheck)
+            AppLog.debug("💾 [CACHE HIT] Directory cache hit - using cached directories (\(String(format: "%.1f", timeSinceLastCheck))s < \(directoryCheckThreshold)s)")
             return cached
         }
         
@@ -46,6 +48,7 @@ class MLXCacheManager {
         _cachedDirectories = existingDirs
         lastDirectoryCheck = now
         
+        AppLog.debug("🆕 [CACHE MISS] Directory cache miss - filesystem scan complete, found \(existingDirs.count) cache directories")
         if AppLog.isVerboseEnabled {
             AppLog.debug("🔍 [CACHE DIRS] Found \(existingDirs.count) cache directories")
         }
@@ -64,6 +67,8 @@ class MLXCacheManager {
         let now = Date()
         if let lastCheck = lastManualCheck,
            now.timeIntervalSince(lastCheck) < manualCheckThreshold {
+            let timeSinceLastCheck = now.timeIntervalSince(lastCheck)
+            AppLog.debug("💾 [CACHE HIT] Manual download check cache hit - returning \(cachedManualCheckResult) (\(String(format: "%.2f", timeSinceLastCheck))s < \(manualCheckThreshold)s)")
             return cachedManualCheckResult
         }
         
@@ -101,6 +106,7 @@ class MLXCacheManager {
             cachedManualCheckResult = isActive
             lastManualCheck = now
             
+            AppLog.debug("🆕 [CACHE MISS] Manual download check cache miss - process check result: \(isActive)")
             if AppLog.isVerboseEnabled {
                 AppLog.debug("🚀 [SMART INIT] Manual download active: \(isActive)")
             }

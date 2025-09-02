@@ -57,12 +57,14 @@ class MLXModelService: ObservableObject {
 
     private init() {
         guard !MLXModelService.isInitialized else {
+            NSLog("🛑 [SINGLETON] MLXModelService singleton already initialized - skipping duplicate init")
+            AppLog.debug("🛑 [SINGLETON] MLXModelService singleton already initialized - preventing duplicate")
             return
         }
         MLXModelService.isInitialized = true
         
-        NSLog("🚀 [CRITICAL] MLXModelService INITIALIZATION STARTED")
-        AppLog.debug("🚀 [INIT] === MLXModelService INITIALIZATION STARTED ===")
+        NSLog("🚀 [SINGLETON] MLXModelService SINGLETON INITIALIZATION STARTED")
+        AppLog.debug("🚀 [SINGLETON] === MLXModelService SINGLETON INITIALIZATION STARTED ===")
 
         Task { @MainActor in
             currentModel = MLXModelConfiguration.gemma3_2B_4bit
@@ -71,15 +73,15 @@ class MLXModelService: ObservableObject {
         }
 
         Task {
-            NSLog("🚀 [CRITICAL] Starting smart startup initialization task...")
-            AppLog.debug("🚀 [INIT] Starting smart startup initialization task...")
+            NSLog("🚀 [SINGLETON] Starting smart startup initialization task...")
+            AppLog.debug("🚀 [SINGLETON] Starting smart startup initialization task...")
             await performSmartStartupInitialization()
-            NSLog("🚀 [CRITICAL] Smart startup initialization task completed")
-            AppLog.debug("🚀 [INIT] Smart startup initialization task completed")
+            NSLog("🚀 [SINGLETON] Smart startup initialization task completed")
+            AppLog.debug("🚀 [SINGLETON] Smart startup initialization task completed")
         }
 
-        NSLog("🚀 [CRITICAL] MLXModelService init completed - smart startup initialization scheduled")
-        AppLog.debug("🚀 [INIT] MLXModelService init completed - smart startup initialization scheduled")
+        NSLog("🚀 [SINGLETON] MLXModelService singleton init completed - smart startup initialization scheduled")
+        AppLog.debug("🚀 [SINGLETON] MLXModelService singleton init completed - smart startup initialization scheduled")
     }
 
     deinit {
@@ -94,10 +96,13 @@ class MLXModelService: ObservableObject {
         let now = Date()
         if let lastCheck = lastReadyCheck, 
            now.timeIntervalSince(lastCheck) < readyCheckThreshold {
+            let timeSinceLastCheck = now.timeIntervalSince(lastCheck)
+            AppLog.debug("🚫 [DEBOUNCE] AI readiness check skipped - debounced (\(String(format: "%.2f", timeSinceLastCheck))s < \(readyCheckThreshold)s)")
             return isModelReady && downloadState == .ready
         }
         
         lastReadyCheck = now
+        AppLog.debug("✅ [DEBOUNCE] AI readiness check allowed - last check was \(lastReadyCheck.map { String(format: "%.2f", now.timeIntervalSince($0)) } ?? "never")s ago")
         AppLog.debug("🔍 [AI READY CHECK] === isAIReady() called ===")
         AppLog.debug("🔍 [AI READY CHECK] isModelReady: \(isModelReady)")
         AppLog.debug("🔍 [AI READY CHECK] downloadState: \(downloadState)")
@@ -141,7 +146,8 @@ class MLXModelService: ObservableObject {
 
         // If initialization is already in progress, just wait
         if Self.isInitializationInProgress {
-            AppLog.debug("🔥 [INIT AI] Smart initialization already in progress - waiting...")
+            AppLog.debug("🛡️ [GUARD] initializeAI() blocked - smart initialization already in progress")
+            NSLog("🛡️ [GUARD] initializeAI() waiting for concurrent initialization to complete")
             return
         }
 
@@ -261,12 +267,17 @@ class MLXModelService: ObservableObject {
     @MainActor
     private func performSmartStartupInitialization() async {
         guard !Self.isInitializationInProgress else {
-            AppLog.debug("🚀 [SMART INIT] Initialization already in progress, skipping")
+            AppLog.debug("🛡️ [GUARD] Smart initialization already in progress - preventing concurrent execution")
+            NSLog("🛡️ [GUARD] Smart initialization blocked - already running")
             return
         }
         
         Self.isInitializationInProgress = true
-        defer { Self.isInitializationInProgress = false }
+        AppLog.debug("🚀 [GUARD] Smart initialization guard acquired - proceeding with initialization")
+        defer { 
+            Self.isInitializationInProgress = false
+            AppLog.debug("🔓 [GUARD] Smart initialization guard released")
+        }
         
         AppLog.debug("🚀 [SMART INIT] === SMART STARTUP INITIALIZATION STARTED ===")
 
