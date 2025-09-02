@@ -6,8 +6,13 @@ import MLXLMCommon
 
 /// MLX-based model service for efficient app distribution
 /// Leverages MLX's built-in Hugging Face model downloading and caching
+/// Singleton pattern ensures consistent state across the app
 class MLXModelService: ObservableObject {
-
+    
+    // MARK: - Singleton
+    
+    static let shared = MLXModelService()
+    
     // MARK: - Published Properties
 
     @Published var isModelReady: Bool = false
@@ -48,31 +53,31 @@ class MLXModelService: ObservableObject {
 
     // MARK: - Initialization
 
-    init() {
+    private init() {
         // Use NSLog for critical debugging that always shows
-        NSLog("🚀 [CRITICAL] MLXModelService INITIALIZATION STARTED")
-        AppLog.debug("🚀 [INIT] === MLXModelService INITIALIZATION STARTED ===")
+        NSLog("🚀 [CRITICAL] MLXModelService SINGLETON INITIALIZATION STARTED")
+        AppLog.debug("🚀 [INIT] === MLXModelService SINGLETON INITIALIZATION STARTED ===")
 
         // Set default model configuration
         Task { @MainActor in
             currentModel = MLXModelConfiguration.gemma3_2B_4bit
-            NSLog("🚀 [CRITICAL] Default model configuration set: gemma3_2B_4bit")
-            AppLog.debug("🚀 [INIT] Default model configuration set: gemma3_2B_4bit")
+            NSLog("🚀 [CRITICAL] Singleton - Default model configuration set: gemma3_2B_4bit")
+            AppLog.debug("🚀 [INIT] Singleton - Default model configuration set: gemma3_2B_4bit")
         }
 
         // Smart startup initialization - check for existing models and manual downloads
         Task {
-            NSLog("🚀 [CRITICAL] Starting smart startup initialization task...")
-            AppLog.debug("🚀 [INIT] Starting smart startup initialization task...")
+            NSLog("🚀 [CRITICAL] Singleton - Starting smart startup initialization task...")
+            AppLog.debug("🚀 [INIT] Singleton - Starting smart startup initialization task...")
             await performSmartStartupInitialization()
-            NSLog("🚀 [CRITICAL] Smart startup initialization task completed")
-            AppLog.debug("🚀 [INIT] Smart startup initialization task completed")
+            NSLog("🚀 [CRITICAL] Singleton - Smart startup initialization task completed")
+            AppLog.debug("🚀 [INIT] Singleton - Smart startup initialization task completed")
         }
 
         NSLog(
-            "🚀 [CRITICAL] MLXModelService init completed - smart startup initialization scheduled")
+            "🚀 [CRITICAL] MLXModelService singleton init completed - smart startup initialization scheduled")
         AppLog.debug(
-            "🚀 [INIT] MLXModelService init completed - smart startup initialization scheduled")
+            "🚀 [INIT] MLXModelService singleton init completed - smart startup initialization scheduled")
     }
 
     deinit {

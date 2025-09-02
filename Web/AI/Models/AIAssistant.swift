@@ -52,7 +52,7 @@ class AIAssistant: ObservableObject {
         self.aiConfiguration = HardwareDetector.getOptimalAIConfiguration()
 
         // Initialize MLX service and Gemma service after super.init equivalent
-        self.mlxModelService = MLXModelService()
+        self.mlxModelService = MLXModelService.shared
         self.gemmaService = GemmaService(
             configuration: aiConfiguration,
             mlxWrapper: mlxWrapper,

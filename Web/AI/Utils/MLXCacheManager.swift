@@ -76,29 +76,8 @@ class MLXCacheManager {
         }
         AppLog.debug("🚀 [SMART INIT] ❌ No lock file found")
 
-        // Simplified process check to prevent hanging
-        AppLog.debug("🚀 [SMART INIT] Performing simplified process check...")
-        do {
-            let task = Process()
-            task.launchPath = "/usr/bin/pgrep"
-            task.arguments = ["-f", "manual_model_download"]
-            
-            let pipe = Pipe()
-            task.standardOutput = pipe
-            task.standardError = Pipe() // Capture stderr to prevent output
-            
-            try task.run()
-            task.waitUntilExit()
-            
-            if task.terminationStatus == 0 {
-                AppLog.debug("🚀 [SMART INIT] ✅ Manual download script detected via pgrep - deferring initialization")
-                return true
-            } else {
-                AppLog.debug("🚀 [SMART INIT] ❌ No manual download script processes found")
-            }
-        } catch {
-            AppLog.debug("🚀 [SMART INIT] ❌ Could not check processes: \(error.localizedDescription)")
-        }
+        // Skip process check to avoid false positives - rely on lock file only
+        AppLog.debug("🚀 [SMART INIT] Skipping process check - lock file detection is more reliable")
         
         AppLog.debug("🚀 [SMART INIT] ✅ No manual download activity detected - proceeding with app initialization")
         return false
