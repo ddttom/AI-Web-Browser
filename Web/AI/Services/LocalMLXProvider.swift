@@ -62,7 +62,7 @@ class LocalMLXProvider: AIProvider, ObservableObject {
         // Initialize dependencies (reuse existing services)
         self.mlxWrapper = MLXWrapper()
         self.privacyManager = PrivacyManager()
-        self.mlxModelService = MLXModelService()
+        self.mlxModelService = MLXModelService.shared
 
         // Get optimal configuration for current hardware
         self.aiConfiguration = HardwareDetector.getOptimalAIConfiguration()

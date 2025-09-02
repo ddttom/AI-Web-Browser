@@ -11,47 +11,43 @@ class MLXCacheManager {
 
     // MARK: - Cache Directories
 
+    private var _cachedDirectories: [URL]?
+    private var lastDirectoryCheck: Date?
+    private let directoryCheckThreshold: TimeInterval = 30.0
+    
     /// Get all potential cache directories where MLX models might be stored
     private var cacheDirectories: [URL] {
+        let now = Date()
+        
+        if let cached = _cachedDirectories,
+           let lastCheck = lastDirectoryCheck,
+           now.timeIntervalSince(lastCheck) < directoryCheckThreshold {
+            return cached
+        }
+        
         var directories: [URL] = []
 
-        // Hugging Face cache directory (primary location)
         let homeDir = fileManager.homeDirectoryForCurrentUser
         let hfCacheDir = homeDir.appendingPathComponent(".cache/huggingface/hub")
         directories.append(hfCacheDir)
 
-        AppLog.debug("🔍 [CACHE DIRS] Primary HF cache directory: \(hfCacheDir.path)")
-        AppLog.debug(
-            "🔍 [CACHE DIRS] HF cache exists: \(fileManager.fileExists(atPath: hfCacheDir.path))")
-
-        // MLX cache directory
         if let cacheDir = fileManager.urls(for: .cachesDirectory, in: .userDomainMask).first {
             let mlxCacheDir = cacheDir.appendingPathComponent("MLXCache")
             directories.append(mlxCacheDir)
-            AppLog.debug("🔍 [CACHE DIRS] MLX cache directory: \(mlxCacheDir.path)")
-            AppLog.debug(
-                "🔍 [CACHE DIRS] MLX cache exists: \(fileManager.fileExists(atPath: mlxCacheDir.path))"
-            )
         }
 
-        // System cache directories
-        if let systemCacheDir = fileManager.urls(for: .cachesDirectory, in: .systemDomainMask).first
-        {
+        if let systemCacheDir = fileManager.urls(for: .cachesDirectory, in: .systemDomainMask).first {
             let sysCacheDir = systemCacheDir.appendingPathComponent("MLXCache")
             directories.append(sysCacheDir)
-            AppLog.debug("🔍 [CACHE DIRS] System cache directory: \(sysCacheDir.path)")
-            AppLog.debug(
-                "🔍 [CACHE DIRS] System cache exists: \(fileManager.fileExists(atPath: sysCacheDir.path))"
-            )
         }
 
         let existingDirs = directories.filter { fileManager.fileExists(atPath: $0.path) }
-        AppLog.debug(
-            "🔍 [CACHE DIRS] Total directories found: \(directories.count), existing: \(existingDirs.count)"
-        )
-
-        for (index, dir) in existingDirs.enumerated() {
-            AppLog.debug("🔍 [CACHE DIRS] Directory \(index + 1): \(dir.path)")
+        
+        _cachedDirectories = existingDirs
+        lastDirectoryCheck = now
+        
+        if AppLog.isVerboseEnabled {
+            AppLog.debug("🔍 [CACHE DIRS] Found \(existingDirs.count) cache directories")
         }
 
         return existingDirs
@@ -59,25 +55,36 @@ class MLXCacheManager {
 
     // MARK: - Public Interface
 
+    private var lastManualCheck: Date?
+    private var cachedManualCheckResult: Bool = false
+    private let manualCheckThreshold: TimeInterval = 2.0
+    
     /// Check if a manual download process is currently active
     func isManualDownloadActive() async -> Bool {
-        AppLog.debug("🚀 [SMART INIT] Checking for manual download activity...")
+        let now = Date()
+        if let lastCheck = lastManualCheck,
+           now.timeIntervalSince(lastCheck) < manualCheckThreshold {
+            return cachedManualCheckResult
+        }
         
-        // Check for manual download lock file first (most reliable)
+        if AppLog.isVerboseEnabled {
+            AppLog.debug("🚀 [SMART INIT] Checking for manual download activity...")
+        }
+        
         let homeDir = fileManager.homeDirectoryForCurrentUser
         let lockFile = homeDir.appendingPathComponent(
             ".cache/huggingface/hub/models--mlx-community--gemma-2-2b-it-4bit/.manual_download_lock"
         )
 
-        AppLog.debug("🚀 [SMART INIT] Checking for lock file at: \(lockFile.path)")
         if fileManager.fileExists(atPath: lockFile.path) {
-            AppLog.debug("🚀 [SMART INIT] ✅ Manual download lock file detected - deferring automatic initialization")
+            if AppLog.isVerboseEnabled {
+                AppLog.debug("🚀 [SMART INIT] ✅ Manual download lock file detected")
+            }
+            cachedManualCheckResult = true
+            lastManualCheck = now
             return true
         }
-        AppLog.debug("🚀 [SMART INIT] ❌ No lock file found")
 
-        // Simplified process check to prevent hanging
-        AppLog.debug("🚀 [SMART INIT] Performing simplified process check...")
         do {
             let task = Process()
             task.launchPath = "/usr/bin/pgrep"
@@ -85,23 +92,26 @@ class MLXCacheManager {
             
             let pipe = Pipe()
             task.standardOutput = pipe
-            task.standardError = Pipe() // Capture stderr to prevent output
+            task.standardError = Pipe()
             
             try task.run()
             task.waitUntilExit()
             
-            if task.terminationStatus == 0 {
-                AppLog.debug("🚀 [SMART INIT] ✅ Manual download script detected via pgrep - deferring initialization")
-                return true
-            } else {
-                AppLog.debug("🚀 [SMART INIT] ❌ No manual download script processes found")
+            let isActive = task.terminationStatus == 0
+            cachedManualCheckResult = isActive
+            lastManualCheck = now
+            
+            if AppLog.isVerboseEnabled {
+                AppLog.debug("🚀 [SMART INIT] Manual download active: \(isActive)")
             }
+            
+            return isActive
+            
         } catch {
-            AppLog.debug("🚀 [SMART INIT] ❌ Could not check processes: \(error.localizedDescription)")
+            cachedManualCheckResult = false
+            lastManualCheck = now
+            return false
         }
-        
-        AppLog.debug("🚀 [SMART INIT] ✅ No manual download activity detected - proceeding with app initialization")
-        return false
     }
 
     /// Check if model files exist and are complete (without validation overhead) - New method with model configuration

@@ -7,6 +7,11 @@ import MLXLMCommon
 /// MLX-based model service for efficient app distribution
 /// Leverages MLX's built-in Hugging Face model downloading and caching
 class MLXModelService: ObservableObject {
+    
+    // MARK: - Singleton
+    static let shared = MLXModelService()
+    private static var isInitialized = false
+    private static var isInitializationInProgress = false
 
     // MARK: - Published Properties
 
@@ -45,22 +50,26 @@ class MLXModelService: ObservableObject {
 
     private let fileManager = FileManager.default
     private var downloadTask: Task<Void, Error>?
+    private var lastReadyCheck: Date?
+    private let readyCheckThreshold: TimeInterval = 0.5
 
     // MARK: - Initialization
 
-    init() {
-        // Use NSLog for critical debugging that always shows
+    private init() {
+        guard !MLXModelService.isInitialized else {
+            return
+        }
+        MLXModelService.isInitialized = true
+        
         NSLog("🚀 [CRITICAL] MLXModelService INITIALIZATION STARTED")
         AppLog.debug("🚀 [INIT] === MLXModelService INITIALIZATION STARTED ===")
 
-        // Set default model configuration
         Task { @MainActor in
             currentModel = MLXModelConfiguration.gemma3_2B_4bit
             NSLog("🚀 [CRITICAL] Default model configuration set: gemma3_2B_4bit")
             AppLog.debug("🚀 [INIT] Default model configuration set: gemma3_2B_4bit")
         }
 
-        // Smart startup initialization - check for existing models and manual downloads
         Task {
             NSLog("🚀 [CRITICAL] Starting smart startup initialization task...")
             AppLog.debug("🚀 [INIT] Starting smart startup initialization task...")
@@ -69,10 +78,8 @@ class MLXModelService: ObservableObject {
             AppLog.debug("🚀 [INIT] Smart startup initialization task completed")
         }
 
-        NSLog(
-            "🚀 [CRITICAL] MLXModelService init completed - smart startup initialization scheduled")
-        AppLog.debug(
-            "🚀 [INIT] MLXModelService init completed - smart startup initialization scheduled")
+        NSLog("🚀 [CRITICAL] MLXModelService init completed - smart startup initialization scheduled")
+        AppLog.debug("🚀 [INIT] MLXModelService init completed - smart startup initialization scheduled")
     }
 
     deinit {
@@ -84,6 +91,13 @@ class MLXModelService: ObservableObject {
     /// Intelligent check: returns true if model is ready, false if download needed
     @MainActor
     func isAIReady() async -> Bool {
+        let now = Date()
+        if let lastCheck = lastReadyCheck, 
+           now.timeIntervalSince(lastCheck) < readyCheckThreshold {
+            return isModelReady && downloadState == .ready
+        }
+        
+        lastReadyCheck = now
         AppLog.debug("🔍 [AI READY CHECK] === isAIReady() called ===")
         AppLog.debug("🔍 [AI READY CHECK] isModelReady: \(isModelReady)")
         AppLog.debug("🔍 [AI READY CHECK] downloadState: \(downloadState)")
@@ -240,6 +254,14 @@ class MLXModelService: ObservableObject {
     /// Smart startup initialization that respects manual downloads and existing models
     @MainActor
     private func performSmartStartupInitialization() async {
+        guard !Self.isInitializationInProgress else {
+            AppLog.debug("🚀 [SMART INIT] Initialization already in progress, skipping")
+            return
+        }
+        
+        Self.isInitializationInProgress = true
+        defer { Self.isInitializationInProgress = false }
+        
         AppLog.debug("🚀 [SMART INIT] === SMART STARTUP INITIALIZATION STARTED ===")
 
         guard let model = currentModel else {
