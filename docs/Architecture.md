@@ -99,8 +99,8 @@ ToolRegistry.swift      // Available tools management
 MLXRunner.swift           // Core MLX model execution
 SimplifiedMLXRunner.swift // Streamlined inference with enhanced error handling
 MLXWrapper.swift          // MLX framework wrapper
-MLXModelService.swift     // Model management with smart initialization
-MLXCacheManager.swift     // Advanced cache management and validation
+MLXModelService.swift     // Singleton model service with async/await coordination
+MLXCacheManager.swift     // Intelligent cache management with time-based invalidation
 ```
 
 ### 2. **Web Engine Layer**
@@ -171,7 +171,7 @@ User Input → SwiftUI View → ViewModel → Service Layer → Model Update →
 
 ### 2. **AI Processing Flow**
 ```
-Web Content → AI Agent → Tool Selection → Local/Cloud Processing → Result → UI Display
+Web Content → AI Agent → Async AI Readiness Wait → Tool Selection → Local/Cloud Processing → Result → UI Display
 ```
 
 ### 3. **Security Validation Flow**
@@ -185,9 +185,11 @@ Request → Security Monitor → Certificate Validation → CSP Check → Safe B
 - **Framework**: Apple MLX for Apple Silicon optimization with enhanced model loading
 - **Models**: Gemma 2 2B (4-bit quantized) and compatible language models
 - **Privacy**: All processing happens on-device with no external data transmission
-- **Performance**: Hardware-accelerated inference with smart initialization coordination
-- **Cache Management**: Advanced cache validation and cleanup with model detection fixes
-- **Recovery**: Automatic error recovery with comprehensive troubleshooting tools
+- **Performance**: Hardware-accelerated inference with async/await coordination replacing polling
+- **Singleton Architecture**: Single `MLXModelService` instance prevents multiple concurrent initializations
+- **Cache Management**: Time-based intelligent caching with 30-second directory cache and 2-second download check debouncing
+- **Async Coordination**: `withCheckedContinuation` for efficient readiness waiting without CPU-intensive polling
+- **Recovery**: Automatic error recovery with comprehensive troubleshooting tools and performance logging
 
 ### Cloud AI Integration
 - **BYOK (Bring Your Own Key)** approach
@@ -203,16 +205,30 @@ Request → Security Monitor → Certificate Validation → CSP Check → Safe B
 
 ## Performance Optimizations
 
+### Async/Await AI Coordination (v2.7.0)
+- **Elimination of Polling**: Replaced 300+ polling-based `isAIReady()` calls with single async/await coordination using `withCheckedContinuation`
+- **Notification-Based System**: Implemented `NotificationCenter` coordination to replace inefficient polling loops during startup
+- **Singleton Pattern**: Converted `MLXModelService` and `AIAssistant` to singleton pattern, eliminating multiple concurrent instances during initialization
+- **Thread-Safe Initialization**: Added `@MainActor` coordination with initialization guards to prevent race conditions
+
+### Intelligent Caching System
+- **Time-Based Directory Cache**: 30-second cache for expensive filesystem operations in `MLXCacheManager`
+- **Manual Download Check Cache**: 2-second debouncing for model download state checks
+- **Cache Hit/Miss Logging**: Comprehensive logging to verify cache performance with categorized prefixes
+- **Smart Cache Invalidation**: Time-based cache expiration with automatic cleanup
+
 ### Memory Management
 - **Tab Hibernation**: Inactive tabs release memory
-- **Lazy Loading**: AI models loaded on demand
+- **Lazy Loading**: AI models loaded on demand with async coordination
 - **Resource Monitoring**: Proactive memory management
-- **Efficient Caching**: Smart content caching
+- **Efficient Caching**: Smart content caching with performance logging
+- **Reduced Memory Footprint**: Eliminated redundant service instances through singleton pattern
 
 ### Rendering Performance
 - **Native WebKit**: Hardware-accelerated rendering
 - **SwiftUI Optimization**: Efficient view updates
-- **Background Processing**: Non-blocking operations
+- **Background Processing**: Non-blocking operations with async/await patterns
+- **Startup Performance**: Reduced AI initialization overhead from 300+ calls to single async wait
 
 ## Security Model
 
