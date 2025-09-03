@@ -16,6 +16,7 @@ import Foundation
 /// - Security event monitoring and audit logging
 /// - Integration with existing browser security infrastructure
 /// - Thread-safe state management with actor isolation
+@MainActor
 class AuthStateManager: ObservableObject {
     static let shared = AuthStateManager()
 

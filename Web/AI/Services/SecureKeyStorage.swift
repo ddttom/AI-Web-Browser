@@ -1,4 +1,5 @@
 import Foundation
+import LocalAuthentication
 import Security
 
 /// Secure API key storage service using macOS Keychain Services
@@ -106,7 +107,9 @@ class SecureKeyStorage {
         ]
 
         // Allow user prompt if biometric-protected
-        query[kSecUseOperationPrompt as String] = "Authenticate to access API key"
+        let context = LAContext()
+        context.localizedReason = "Authenticate to access API key"
+        query[kSecUseAuthenticationContext as String] = context
 
         var result: AnyObject?
         let status = SecItemCopyMatching(query as CFDictionary, &result)

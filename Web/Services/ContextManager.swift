@@ -68,7 +68,7 @@ class ContextManager: ObservableObject {
             Date().timeIntervalSince(lastTime) < minExtractionInterval,
             let lastContext = lastExtractedContext
         {
-            let currentURL = await webView.url?.absoluteString
+            let currentURL = webView.url?.absoluteString
             if lastContext.url == currentURL {
                 return lastContext
             }
@@ -79,7 +79,7 @@ class ContextManager: ObservableObject {
 
     /// Extract context from specific WebView with intelligent caching
     func extractPageContext(from webView: WKWebView, tab: Tab) async -> WebpageContext? {
-        guard let url = await webView.url?.absoluteString else {
+        guard let url = webView.url?.absoluteString else {
             if AppLog.isVerboseEnabled { AppLog.debug("No URL for context extraction") }
             return nil
         }

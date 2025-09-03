@@ -1128,7 +1128,7 @@ struct WebView: NSViewRepresentable {
 
         private func handleCertificateExceptionGranted(_ notification: Notification) {
             guard
-                let challenge = notification.userInfo?["challenge"] as? URLAuthenticationChallenge,
+                notification.userInfo?["challenge"] as? URLAuthenticationChallenge != nil,
                 let host = notification.userInfo?["host"] as? String,
                 let port = notification.userInfo?["port"] as? Int
             else {
@@ -1142,7 +1142,7 @@ struct WebView: NSViewRepresentable {
                 let pendingChallenge = pendingChallenges.remove(at: index)
 
                 // Retry validation with exception now granted
-                let (disposition, credential) = CertificateManager.shared.validateChallenge(
+                let (_, _) = CertificateManager.shared.validateChallenge(
                     pendingChallenge)
 
                 // This should now succeed because the exception was granted
@@ -2289,9 +2289,9 @@ struct WebView: NSViewRepresentable {
 
             // AI RESPONSIVENESS FIX: Run context extraction on background queue
             await withCheckedContinuation { continuation in
-                DispatchQueue.global(qos: .userInitiated).async {
-                    Task {
-                        await self.performBackgroundContextExtraction(webView: webView, tab: tab)
+                DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+                    Task { @MainActor in
+                        await self?.performBackgroundContextExtraction(webView: webView, tab: tab)
                         continuation.resume()
                     }
                 }

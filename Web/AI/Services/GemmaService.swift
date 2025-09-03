@@ -160,7 +160,7 @@ class GemmaService {
                     // MLX handles tokenization internally
 
                     // Use MLXRunner for streaming with pre-built prompt that includes conversation context
-                    let textStream = await SimplifiedMLXRunner.shared.generateStreamWithPrompt(
+                    let textStream = SimplifiedMLXRunner.shared.generateStreamWithPrompt(
                         prompt: prompt, modelId: "gemma3_2B_4bit")
 
                     var hasYieldedContent = false

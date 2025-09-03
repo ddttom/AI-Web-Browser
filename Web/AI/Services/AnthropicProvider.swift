@@ -95,7 +95,7 @@ class AnthropicProvider: ExternalAPIProvider {
     // MARK: - Configuration Validation
 
     override func validateConfiguration() async throws {
-        guard let apiKey = apiKey else {
+        guard apiKey != nil else {
             throw AIProviderError.missingAPIKey(displayName)
         }
 
@@ -358,7 +358,7 @@ class AnthropicProvider: ExternalAPIProvider {
         // Circuit breaker
         try preflightCircuitBreaker()
 
-        guard let apiKey = apiKey else {
+        guard apiKey != nil else {
             throw AIProviderError.missingAPIKey(displayName)
         }
 
@@ -445,7 +445,7 @@ class AnthropicProvider: ExternalAPIProvider {
         // Circuit breaker
         try preflightCircuitBreaker()
 
-        guard let apiKey = apiKey else {
+        guard apiKey != nil else {
             throw AIProviderError.missingAPIKey(displayName)
         }
 
@@ -536,7 +536,7 @@ class AnthropicProvider: ExternalAPIProvider {
         }
 
         // Current query
-        var queryContent: [[String: Any]] = [
+        let queryContent: [[String: Any]] = [
             ["type": "text", "text": query]
         ]
 

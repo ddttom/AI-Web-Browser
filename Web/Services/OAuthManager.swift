@@ -17,6 +17,7 @@ import Security
 /// - Secure callback URL validation and handling
 /// - Token exchange with comprehensive validation
 /// - Integration with TokenManager for secure storage
+@MainActor
 class OAuthManager: NSObject, ObservableObject {
     static let shared = OAuthManager()
 

@@ -270,30 +270,25 @@ class ModelDiscoveryService: ObservableObject {
     }
 
     private func createDiscoveredModel(from url: URL) async -> DiscoveredModel? {
-        do {
-            let modelName = extractModelName(from: url)
-            let modelType = detectModelType(from: modelName)
-            let sizeGB = await calculateDirectorySize(url)
-            let source = determineModelSource(from: url)
+        let modelName = extractModelName(from: url)
+        let modelType = detectModelType(from: modelName)
+        let sizeGB = await calculateDirectorySize(url)
+        let source = determineModelSource(from: url)
 
-            // Try to read metadata
-            let metadata = await readModelMetadata(from: url)
+        // Try to read metadata
+        let metadata = await readModelMetadata(from: url)
 
-            return DiscoveredModel(
-                id: url.path,
-                name: modelName,
-                path: url.path,
-                source: source,
-                sizeGB: sizeGB,
-                modelType: modelType,
-                isValid: true,  // Will be validated later if needed
-                lastValidated: Date(),
-                metadata: metadata
-            )
-        } catch {
-            NSLog("⚠️ Error creating model from \(url.path): \(error)")
-            return nil
-        }
+        return DiscoveredModel(
+            id: url.path,
+            name: modelName,
+            path: url.path,
+            source: source,
+            sizeGB: sizeGB,
+            modelType: modelType,
+            isValid: true,  // Will be validated later if needed
+            lastValidated: Date(),
+            metadata: metadata
+        )
     }
 
     private func extractModelName(from url: URL) -> String {
@@ -342,22 +337,24 @@ class ModelDiscoveryService: ObservableObject {
     }
 
     private func calculateDirectorySize(_ url: URL) async -> Double {
-        var totalSize: Int64 = 0
+        return await Task.detached {
+            var totalSize: Int64 = 0
 
-        if let enumerator = fileManager.enumerator(
-            at: url, includingPropertiesForKeys: [.fileSizeKey])
-        {
-            for case let fileURL as URL in enumerator {
-                do {
-                    let resourceValues = try fileURL.resourceValues(forKeys: [.fileSizeKey])
-                    totalSize += Int64(resourceValues.fileSize ?? 0)
-                } catch {
-                    // Continue on error
+            if let enumerator = FileManager.default.enumerator(
+                at: url, includingPropertiesForKeys: [.fileSizeKey])
+            {
+                while let fileURL = enumerator.nextObject() as? URL {
+                    do {
+                        let resourceValues = try fileURL.resourceValues(forKeys: [.fileSizeKey])
+                        totalSize += Int64(resourceValues.fileSize ?? 0)
+                    } catch {
+                        // Continue on error
+                    }
                 }
             }
-        }
 
-        return Double(totalSize) / (1024 * 1024 * 1024)  // Convert to GB
+            return Double(totalSize) / (1024 * 1024 * 1024)  // Convert to GB
+        }.value
     }
 
     private func readModelMetadata(from url: URL) async -> DiscoveredModel.ModelMetadata? {

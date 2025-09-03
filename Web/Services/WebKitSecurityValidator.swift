@@ -69,7 +69,7 @@ class WebKitSecurityValidator {
     /// - Returns: True if JIT is required, false if it can be removed
     func isJITRequired() -> Bool {
         // Check if running on Apple Silicon (where JIT is more critical)
-        let isAppleSilicon =
+        let _ =
             ProcessInfo.processInfo.processorCount > 0
             && ProcessInfo.processInfo.activeProcessorCount > 0
 
