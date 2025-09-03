@@ -52,6 +52,8 @@ class MLXModelService: ObservableObject {
     private var downloadTask: Task<Void, Error>?
     private var lastReadyCheck: Date?
     private let readyCheckThreshold: TimeInterval = 0.5
+    private var initializationTask: Task<Void, Error>?
+    private var readinessCompletionHandlers: [CheckedContinuation<Bool, Never>] = []
 
     // MARK: - Initialization
 
@@ -116,6 +118,34 @@ class MLXModelService: ObservableObject {
         }
 
         return result
+    }
+    
+    /// Async method to wait for AI readiness without polling - much more efficient than isAIReady()
+    @MainActor
+    func waitForAIReadiness() async -> Bool {
+        // If already ready, return immediately
+        if isModelReady && downloadState == .ready {
+            AppLog.debug("🚀 [ASYNC WAIT] AI already ready - returning immediately")
+            return true
+        }
+        
+        // If not ready, wait for completion
+        return await withCheckedContinuation { continuation in
+            AppLog.debug("🔄 [ASYNC WAIT] Waiting for AI initialization completion - no polling needed")
+            readinessCompletionHandlers.append(continuation)
+        }
+    }
+    
+    /// Internal method to notify all waiting callers when AI becomes ready
+    @MainActor
+    private func notifyReadinessWaiters() {
+        let isReady = isModelReady && downloadState == .ready
+        AppLog.debug("📡 [ASYNC NOTIFY] Notifying \(readinessCompletionHandlers.count) waiters - AI ready: \(isReady)")
+        
+        for continuation in readinessCompletionHandlers {
+            continuation.resume(returning: isReady)
+        }
+        readinessCompletionHandlers.removeAll()
     }
 
     /// Get model configuration (replaces getModelPath for MLX compatibility)
@@ -337,6 +367,8 @@ class MLXModelService: ObservableObject {
                 isModelReady = true
                 downloadState = .ready
                 downloadProgress = 1.0
+                
+                notifyReadinessWaiters()
 
                 AppLog.debug("🚀 [SMART INIT] ✅ Successfully loaded existing model: \(model.name)")
                 return
@@ -391,6 +423,8 @@ class MLXModelService: ObservableObject {
                         isModelReady = true
                         downloadState = .ready
                         downloadProgress = 1.0
+                        
+                        notifyReadinessWaiters()
 
                         AppLog.debug("Successfully loaded manually downloaded model: \(model.name)")
                         return
@@ -459,6 +493,8 @@ class MLXModelService: ObservableObject {
                 isModelReady = true
                 downloadState = .ready
                 downloadProgress = 1.0
+                
+                notifyReadinessWaiters()
 
                 AppLog.debug("MLX model loaded from cache: \(model.name)")
                 return
@@ -511,6 +547,8 @@ class MLXModelService: ObservableObject {
             isModelReady = true
             downloadState = .ready
             downloadProgress = 1.0
+            
+            notifyReadinessWaiters()
 
             AppLog.debug("MLX model downloaded and validated: \(model.name)")
 
@@ -544,6 +582,9 @@ class MLXModelService: ObservableObject {
                         isModelReady = true
                         downloadState = .ready
                         downloadProgress = 1.0
+                        
+                        notifyReadinessWaiters()
+                        
                         AppLog.debug("MLX model recovery successful: \(model.name)")
                         return
                     } else {
@@ -634,6 +675,9 @@ class MLXModelService: ObservableObject {
                     isModelReady = true
                     downloadState = .ready
                     downloadProgress = 1.0
+                    
+                    notifyReadinessWaiters()
+                    
                     AppLog.debug("📥 [DOWNLOAD] ✅ Successfully loaded existing model files")
                     return
                 }
@@ -658,6 +702,7 @@ class MLXModelService: ObservableObject {
                 isModelReady = true
                 downloadState = .ready
                 downloadProgress = 1.0
+                notifyReadinessWaiters()
 
                 AppLog.debug("MLX AI model download completed successfully on attempt \(attempt)")
                 return

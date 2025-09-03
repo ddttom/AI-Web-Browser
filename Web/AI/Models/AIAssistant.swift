@@ -109,17 +109,18 @@ class AIAssistant: ObservableObject {
                 }
 
                 await updateStatus("Loading MLX AI model...")
-                while !(await mlxModelService.isAIReady()) {
+                
+                // Wait for AI readiness with async/await instead of polling
+                AppLog.debug("🔄 [AI-ASSISTANT] Waiting for AI readiness...")
+                let isReady = await mlxModelService.waitForAIReadiness()
+                
+                if isReady {
+                    AppLog.debug("✅ [AI-ASSISTANT] AI readiness wait completed successfully")
+                } else {
+                    AppLog.error("❌ [AI-ASSISTANT] AI readiness wait failed")
                     if case .failed(let error) = mlxModelService.downloadState {
                         throw MLXModelError.downloadFailed("MLX model download failed: \(error)")
                     }
-                    let progress = mlxModelService.downloadProgress
-                    if progress > 0 {
-                        await updateStatus("Loading MLX AI model... (\(Int(progress * 100)))")
-                    } else {
-                        await updateStatus("Loading MLX AI model...")
-                    }
-                    try await Task.sleep(nanoseconds: 500_000_000)
                 }
 
                 // Initialize frameworks and services required for local
