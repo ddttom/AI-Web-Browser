@@ -65,7 +65,7 @@ class OAuthManager: NSObject, ObservableObject {
             case clientCredentials = "client_credentials"
         }
 
-        static let exampleProviders: [OAuthProvider] = [
+        nonisolated static let exampleProviders: [OAuthProvider] = [
             OAuthProvider(
                 id: UUID(),
                 name: "Google",

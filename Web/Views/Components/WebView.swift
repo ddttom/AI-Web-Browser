@@ -2289,7 +2289,7 @@ struct WebView: NSViewRepresentable {
 
             // AI RESPONSIVENESS FIX: Run context extraction on background queue
             await withCheckedContinuation { continuation in
-                DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+                DispatchQueue.global(qos: .userInitiated).async { [weak self, tab] in
                     Task { @MainActor in
                         await self?.performBackgroundContextExtraction(webView: webView, tab: tab)
                         continuation.resume()

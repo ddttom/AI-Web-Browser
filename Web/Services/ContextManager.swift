@@ -598,13 +598,9 @@ class ContextManager: ObservableObject {
 
             // Execute JavaScript on main thread
             Task { @MainActor [weak self] in
-                webView.evaluateJavaScript(script) { result, error in
+                do {
+                    let result = try await webView.evaluateJavaScript(script)
                     timeoutTask.cancel()
-                    if let error = error {
-                        cont.resume(
-                            throwing: ContextError.javascriptError(error.localizedDescription))
-                        return
-                    }
                     guard let data = result as? [String: Any] else {
                         cont.resume(throwing: ContextError.invalidResponse)
                         return
@@ -620,6 +616,11 @@ class ContextManager: ObservableObject {
                     } catch {
                         cont.resume(throwing: error)
                     }
+                } catch {
+                    timeoutTask.cancel()
+                    cont.resume(
+                        throwing: ContextError.javascriptError(error.localizedDescription))
+                }
                 }
             }
         }
@@ -695,12 +696,8 @@ class ContextManager: ObservableObject {
 
         return try await withCheckedThrowingContinuation { cont in
             Task { @MainActor [weak self] in
-                webView.evaluateJavaScript(emergencyScript) { result, error in
-                    if let error = error {
-                        cont.resume(
-                            throwing: ContextError.javascriptError(error.localizedDescription))
-                        return
-                    }
+                do {
+                    let result = try await webView.evaluateJavaScript(emergencyScript)
                     guard let data = result as? [String: Any] else {
                         cont.resume(throwing: ContextError.invalidResponse)
                         return
@@ -716,6 +713,10 @@ class ContextManager: ObservableObject {
                     } catch {
                         cont.resume(throwing: error)
                     }
+                } catch {
+                    cont.resume(
+                        throwing: ContextError.javascriptError(error.localizedDescription))
+                }
                 }
             }
         }
