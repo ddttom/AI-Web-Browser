@@ -2452,7 +2452,7 @@ class AIAssistant: ObservableObject {
     /// Clear history context for privacy
     @MainActor
     func clearHistoryContext() {
-        contextManager.clearHistoryContextCache()
+        contextManager.clearContextCache()
         AppLog.debug("History context cleared")
     }
 

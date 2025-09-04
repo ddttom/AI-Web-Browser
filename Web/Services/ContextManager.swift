@@ -672,7 +672,7 @@ class ContextManager: ObservableObject {
         AppLog.debug("Context cache cleared")
     }
     
-    func clearHistoryContextCache() {
+    public func clearHistoryContextCache() {
         // Clear any history-related cache and reset settings
         // This is primarily for privacy purposes
         AppLog.debug("History context cache cleared")
