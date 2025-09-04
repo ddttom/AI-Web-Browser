@@ -190,15 +190,25 @@ Enhanced logging system to reduce noise and improve production experience:
 - **Message Cleaning**: Automatic removal of emojis and debug tags in release builds
 - **System Error Filtering**: Suppression of benign WebKit, Metal, and network warnings
 - **Duplicate Prevention**: Guard against multiple initialization attempts causing log spam
+- **Cache Debug Suppression**: Verbose file validation logging only in debug mode
+- **Async Coordination**: Eliminated repetitive polling messages with notification-based waiting
 
 **Debug Build Enhancements**:
-- **Throttled Logging**: Guard wait messages reduced from every 0.2s to every 1s interval
 - **Full Formatting**: Preserves all emojis and debug markers for development visibility
 - **Verbose Control**: Fine-grained control via `App.VerboseLogs` UserDefault
+- **Async Notifications**: Clean coordination without polling-induced log noise
+- **Conditional Cache Logging**: Detailed file system operations available on demand
 
 ```bash
-# Reduced logging frequency example (debug builds)
-🔍 [GUARD] Waiting for smart init... current state: isModelReady=false (every 1s vs 0.2s)
+# BEFORE: Repetitive polling messages
+🔍 [GUARD] Waiting for smart init... current state: isModelReady=false
+🔍 [GUARD] Waiting for smart init... current state: isModelReady=false
+# (repeated every 0.2s)
+
+# AFTER: Single async wait with notification
+🛡️ [GUARD] initializeAI() waiting for concurrent initialization to complete
+🔄 [ASYNC WAIT] Waiting for initialization completion - no polling needed
+🔍 [GUARD] Smart init completed. Final state: isModelReady=true
 ```
 
 ## AI Features
