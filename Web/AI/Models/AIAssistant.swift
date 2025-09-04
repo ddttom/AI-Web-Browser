@@ -9,10 +9,10 @@ class AIAssistant: ObservableObject {
     
     // MARK: - Singleton
     static let shared: AIAssistant = {
-        AppLog.debug("🚀 [SINGLETON] AIAssistant SINGLETON INITIALIZATION STARTED")
-        NSLog("🚀 [SINGLETON] AIAssistant SINGLETON INITIALIZATION STARTED")
+        AppLog.debug("🚀 [SINGLETON] AIAssistant initializing")
         return AIAssistant()
     }()
+    private static var hasInitialized = false
 
     // MARK: - Published Properties (Main Actor for UI Updates)
 
@@ -47,6 +47,10 @@ class AIAssistant: ObservableObject {
     // MARK: - Initialization
 
     private init(tabManager: TabManager? = nil) {
+        guard !AIAssistant.hasInitialized else {
+            fatalError("AIAssistant is a singleton - use AIAssistant.shared")
+        }
+        AIAssistant.hasInitialized = true
         
         // Initialize dependencies
         self.mlxWrapper = MLXWrapper()
@@ -69,8 +73,7 @@ class AIAssistant: ObservableObject {
         )
 
         // Set up bindings - will be called async in initialize
-        AppLog.debug("🚀 [SINGLETON] AIAssistant singleton init completed: framework=\(aiConfiguration.framework)")
-        NSLog("🚀 [SINGLETON] AIAssistant singleton init completed")
+        AppLog.debug("🚀 [SINGLETON] AIAssistant ready: framework=\(aiConfiguration.framework)")
     }
 
     // MARK: - Public Interface

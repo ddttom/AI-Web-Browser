@@ -2317,10 +2317,12 @@ struct WebView: NSViewRepresentable {
                     }
 
                     // Check if we have good enough content or if JS recommends no retry
-                    if context.isHighQuality || !context.shouldRetry {
+                    // Also break early if we get same quality content repeatedly (avoid infinite cache loops)
+                    if context.isHighQuality || !context.shouldRetry || 
+                       (attemptCount > 2 && context.contentQuality <= 25) {
                         if AppLog.isVerboseEnabled {
                             AppLog.debug(
-                                "Auto-read complete: len=\(context.text.count) title=\(context.title)"
+                                "Auto-read complete: len=\(context.text.count) title=\(context.title) (attempt \(attemptCount))"
                             )
                         }
                         break
