@@ -2541,7 +2541,8 @@ class AIAssistant: ObservableObject {
                 // Only reset initialization state if model becomes permanently unavailable
                 // Don't reset during normal startup/loading process
                 Task { @MainActor [weak self] in
-                    if !isReady && self?.isInitialized == true && self?.mlxModelService.downloadState == .failed {
+                    if !isReady && self?.isInitialized == true,
+                       case .failed(_) = self?.mlxModelService.downloadState {
                         AppLog.debug("🔄 [AI-ASSISTANT] Resetting initialization due to model failure")
                         self?.isInitialized = false
                     }
