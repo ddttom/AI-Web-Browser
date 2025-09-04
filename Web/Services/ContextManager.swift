@@ -735,6 +735,14 @@ struct WebpageContext: Identifiable, Codable {
         default: return "Very Poor"
         }
     }
+    
+    var isHighQuality: Bool {
+        return contentQuality >= 60 && wordCount > 200
+    }
+    
+    var shouldRetry: Bool {
+        return contentQuality < 40 || wordCount < 100 || !isContentStable
+    }
 }
 
 /// History context scope options
