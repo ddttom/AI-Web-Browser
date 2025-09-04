@@ -54,6 +54,7 @@ class MLXModelService: ObservableObject {
     private let readyCheckThreshold: TimeInterval = 2.0
     private var initializationTask: Task<Void, Error>?
     private var readinessCompletionHandlers: [CheckedContinuation<Bool, Never>] = []
+    private var initializationCompletionHandlers: [CheckedContinuation<Void, Never>] = []
 
     // MARK: - Initialization
 
@@ -147,6 +148,29 @@ class MLXModelService: ObservableObject {
         }
         readinessCompletionHandlers.removeAll()
     }
+    
+    /// Wait for initialization to complete asynchronously without polling
+    private func waitForInitializationCompletion() async {
+        if !Self.isInitializationInProgress {
+            return  // Already completed
+        }
+        
+        await withCheckedContinuation { continuation in
+            AppLog.debug("🔄 [ASYNC WAIT] Waiting for initialization completion - no polling needed")
+            initializationCompletionHandlers.append(continuation)
+        }
+    }
+    
+    /// Notify all waiters that initialization has completed
+    @MainActor
+    private func notifyInitializationCompletion() {
+        AppLog.debug("📡 [ASYNC NOTIFY] Notifying \(initializationCompletionHandlers.count) initialization waiters")
+        
+        for continuation in initializationCompletionHandlers {
+            continuation.resume(returning: ())
+        }
+        initializationCompletionHandlers.removeAll()
+    }
 
     /// Get model configuration (replaces getModelPath for MLX compatibility)
     @MainActor
@@ -183,16 +207,8 @@ class MLXModelService: ObservableObject {
             AppLog.debug("🛡️ [GUARD] initializeAI() blocked - smart initialization already in progress")
             AppLog.debug("🛡️ [GUARD] initializeAI() waiting for concurrent initialization to complete")
 
-            // Wait for the smart initialization to complete with reduced logging frequency
-            var waitCount = 0
-            while Self.isInitializationInProgress {
-                // Only log every 5 iterations (1 second intervals) to reduce noise
-                if waitCount % 5 == 0 {
-                    AppLog.debug("🔍 [GUARD] Waiting for smart init... current state: isModelReady=\(isModelReady), downloadState=\(downloadState)")
-                }
-                waitCount += 1
-                try? await Task.sleep(nanoseconds: 200_000_000)  // 0.2 seconds
-            }
+            // Wait for initialization to complete using async notification (no polling)
+            await waitForInitializationCompletion()
 
             AppLog.debug("🔍 [GUARD] Smart init completed. Final state: isModelReady=\(isModelReady), downloadState=\(downloadState)")
             
@@ -331,6 +347,9 @@ class MLXModelService: ObservableObject {
         defer { 
             Self.isInitializationInProgress = false
             AppLog.debug("🔓 [GUARD] Smart initialization guard released")
+            Task { @MainActor in
+                self.notifyInitializationCompletion()
+            }
         }
         
         AppLog.essential("🚀 AI model initialization started")

@@ -133,22 +133,34 @@ class MLXCacheManager {
             "model.safetensors",
         ]
 
-        AppLog.debug("🔍 [CACHE DEBUG] Searching in \(cacheDirectories.count) cache directories")
+        if AppLog.isVerboseEnabled {
+            AppLog.debug("🔍 [CACHE DEBUG] Searching in \(cacheDirectories.count) cache directories")
+        }
         for (index, cacheDir) in cacheDirectories.enumerated() {
-            AppLog.debug("🔍 [CACHE DEBUG] Checking cache directory \(index + 1): \(cacheDir.path)")
+            if AppLog.isVerboseEnabled {
+                AppLog.debug("🔍 [CACHE DEBUG] Checking cache directory \(index + 1): \(cacheDir.path)")
+            }
 
             if let modelDir = await findModelDirectory(in: cacheDir, for: modelConfig) {
-                AppLog.debug("🔍 [CACHE DEBUG] Found model directory: \(modelDir.path)")
+                if AppLog.isVerboseEnabled {
+                    AppLog.debug("🔍 [CACHE DEBUG] Found model directory: \(modelDir.path)")
+                }
                 // Quick file existence check without full validation
                 var allFilesPresent = true
-                AppLog.debug("🔍 [CACHE DEBUG] Checking required files: \(requiredFiles)")
+                if AppLog.isVerboseEnabled {
+                    AppLog.debug("🔍 [CACHE DEBUG] Checking required files: \(requiredFiles)")
+                }
 
                 for fileName in requiredFiles {
                     let filePath = modelDir.appendingPathComponent(fileName)
-                    AppLog.debug("🔍 [CACHE DEBUG] Checking file: \(filePath.path)")
+                    if AppLog.isVerboseEnabled {
+                        AppLog.debug("🔍 [CACHE DEBUG] Checking file: \(filePath.path)")
+                    }
 
                     if !fileManager.fileExists(atPath: filePath.path) {
-                        AppLog.debug("🔍 [CACHE DEBUG] ❌ Missing file: \(fileName)")
+                        if AppLog.isVerboseEnabled {
+                            AppLog.debug("🔍 [CACHE DEBUG] ❌ Missing file: \(fileName)")
+                        }
                         allFilesPresent = false
                         break
                     }
@@ -157,12 +169,16 @@ class MLXCacheManager {
                     do {
                         let attributes = try fileManager.attributesOfItem(atPath: filePath.path)
                         let fileSize = attributes[.size] as? Int64 ?? 0
-                        AppLog.debug(
-                            "🔍 [CACHE DEBUG] ✅ Found file: \(fileName) (\(fileSize) bytes)")
+                        if AppLog.isVerboseEnabled {
+                            AppLog.debug(
+                                "🔍 [CACHE DEBUG] ✅ Found file: \(fileName) (\(fileSize) bytes)")
+                        }
 
                         if fileSize < 10 {  // Files should be larger than 10 bytes
-                            AppLog.debug(
-                                "🔍 [CACHE DEBUG] ❌ File too small: \(fileName) (\(fileSize) bytes)")
+                            if AppLog.isVerboseEnabled {
+                                AppLog.debug(
+                                    "🔍 [CACHE DEBUG] ❌ File too small: \(fileName) (\(fileSize) bytes)")
+                            }
                             allFilesPresent = false
                             break
                         }
@@ -176,11 +192,15 @@ class MLXCacheManager {
                 }
 
                 if allFilesPresent {
-                    AppLog.debug(
-                        "🔍 [CACHE DEBUG] ✅ All required files found for: \(modelConfig.modelId)")
+                    if AppLog.isVerboseEnabled {
+                        AppLog.debug(
+                            "🔍 [CACHE DEBUG] ✅ All required files found for: \(modelConfig.modelId)")
+                    }
                     return true
                 } else {
-                    AppLog.debug("🔍 [CACHE DEBUG] ❌ Some files missing for: \(modelConfig.modelId)")
+                    if AppLog.isVerboseEnabled {
+                        AppLog.debug("🔍 [CACHE DEBUG] ❌ Some files missing for: \(modelConfig.modelId)")
+                    }
                 }
             }
         }
@@ -548,7 +568,9 @@ class MLXCacheManager {
     private func getCacheDirectoryName(for modelConfig: MLXModelConfiguration) -> String {
         // Use the preconfigured cache directory name from the model configuration
         // This ensures consistency with manual download script naming
-        AppLog.debug("🔍 [CACHE DEBUG] Using cache directory name from config: \(modelConfig.cacheDirectoryName)")
+        if AppLog.isVerboseEnabled {
+            AppLog.debug("🔍 [CACHE DEBUG] Using cache directory name from config: \(modelConfig.cacheDirectoryName)")
+        }
         return modelConfig.cacheDirectoryName
     }
 
@@ -566,10 +588,14 @@ class MLXCacheManager {
                 options: [.skipsHiddenFiles]
             )
 
-            AppLog.debug("🔍 [CACHE DEBUG] Found \(contents.count) items in cache directory")
+            if AppLog.isVerboseEnabled {
+                AppLog.debug("🔍 [CACHE DEBUG] Found \(contents.count) items in cache directory")
+            }
 
             let expectedCacheDir = getCacheDirectoryName(for: modelConfig)
-            AppLog.debug("🔍 [CACHE DEBUG] Looking for cache directory: \(expectedCacheDir)")
+            if AppLog.isVerboseEnabled {
+                AppLog.debug("🔍 [CACHE DEBUG] Looking for cache directory: \(expectedCacheDir)")
+            }
 
             for item in contents {
                 let fileName = item.lastPathComponent
@@ -580,7 +606,9 @@ class MLXCacheManager {
 
                 // Check for exact Hugging Face cache directory name
                 if fileName == expectedCacheDir {
-                    AppLog.debug("🔍 [CACHE DEBUG] ✅ Found matching directory: \(fileName)")
+                    if AppLog.isVerboseEnabled {
+                        AppLog.debug("🔍 [CACHE DEBUG] ✅ Found matching directory: \(fileName)")
+                    }
                     var isDirectory: ObjCBool = false
                     if fileManager.fileExists(atPath: item.path, isDirectory: &isDirectory)
                         && isDirectory.boolValue
@@ -628,7 +656,9 @@ class MLXCacheManager {
                     if fileManager.fileExists(atPath: item.path, isDirectory: &isDirectory)
                         && isDirectory.boolValue
                     {
-                        AppLog.debug("🔍 [CACHE DEBUG] ✅ Found legacy model directory: \(fileName)")
+                        if AppLog.isVerboseEnabled {
+                            AppLog.debug("🔍 [CACHE DEBUG] ✅ Found legacy model directory: \(fileName)")
+                        }
                         return item
                     }
                 }

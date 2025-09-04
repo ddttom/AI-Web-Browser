@@ -2538,12 +2538,15 @@ class AIAssistant: ObservableObject {
         mlxModelService.$isModelReady
             .receive(on: DispatchQueue.main)
             .sink { [weak self] isReady in
+                // Only reset initialization state if model becomes permanently unavailable
+                // Don't reset during normal startup/loading process
                 Task { @MainActor [weak self] in
-                    if !isReady && self?.isInitialized == true {
+                    if !isReady && self?.isInitialized == true && self?.mlxModelService.downloadState == .failed {
+                        AppLog.debug("🔄 [AI-ASSISTANT] Resetting initialization due to model failure")
                         self?.isInitialized = false
                     }
                 }
-                if !isReady {
+                if !isReady && AppLog.isVerboseEnabled {
                     Task { await self?.updateStatus("MLX AI model not available") }
                 }
             }
