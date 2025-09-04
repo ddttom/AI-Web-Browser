@@ -301,10 +301,11 @@ class MLXModelService: ObservableObject {
             AppLog.debug("🔓 [GUARD] Smart initialization guard released")
         }
         
+        AppLog.essential("🚀 AI model initialization started")
         AppLog.debug("🚀 [SMART INIT] === SMART STARTUP INITIALIZATION STARTED ===")
 
         guard let model = currentModel else {
-            AppLog.debug("🚀 [SMART INIT] ❌ No model configuration available")
+            AppLog.error("🚀 [SMART INIT] ❌ No model configuration available")
             downloadState = .failed("No model configuration available")
             return
         }
@@ -342,6 +343,7 @@ class MLXModelService: ObservableObject {
         AppLog.debug("🚀 [SMART INIT] hasCompleteModelFiles result: \(hasCompleteFiles)")
 
         if hasCompleteFiles {
+            AppLog.essential("🚀 AI model found - loading existing files")
             AppLog.debug(
                 "🚀 [SMART INIT] ✅ Complete model files detected - attempting to load existing model"
             )
@@ -360,6 +362,7 @@ class MLXModelService: ObservableObject {
                 downloadState = .ready
                 downloadProgress = 1.0
                 
+                AppLog.essential("✅ AI model ready")
                 notifyReadinessWaiters()
 
                 AppLog.debug("🚀 [SMART INIT] ✅ Successfully loaded existing model: \(model.name)")

@@ -153,6 +153,9 @@ class MetalDiagnostics {
             "has an invalid format",
             "MTLLibrary creation failed",
             "Metal shader compilation failed",
+            "Failed to load content rules",
+            "Rule list lookup failed",
+            "WKErrorDomain Code=7",
         ]
 
         return suppressedPatterns.contains { pattern in

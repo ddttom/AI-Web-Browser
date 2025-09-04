@@ -10,7 +10,11 @@ enum AppLog {
     private static let logger = Logger(subsystem: subsystem, category: "app")
 
     static var isVerboseEnabled: Bool {
-        UserDefaults.standard.bool(forKey: "App.VerboseLogs")
+        #if DEBUG
+            return UserDefaults.standard.bool(forKey: "App.VerboseLogs")
+        #else
+            return false  // Always disable verbose logging in release builds
+        #endif
     }
 
     static var isMetalFilteringEnabled: Bool {
@@ -37,6 +41,12 @@ enum AppLog {
     static func error(_ message: String) {
         guard !shouldSuppressMessage(message) else { return }
         logger.error("\(message)")
+    }
+    
+    /// Essential logging that shows in both dev and production (minimal, important messages only)
+    static func essential(_ message: String) {
+        guard !shouldSuppressMessage(message) else { return }
+        logger.info("\(message)")
     }
 
     // MARK: - Metal Error Filtering
