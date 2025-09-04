@@ -736,8 +736,9 @@ if AppLog.isVerboseEnabled {
     AppLog.debug("🔍 [CACHE DEBUG] Checking file: \(filePath.path)")
 }
 
-// Smart initialization state management
-if !isReady && self?.isInitialized == true && self?.mlxModelService.downloadState == .failed {
+// Smart initialization state management (with proper pattern matching)
+if !isReady && self?.isInitialized == true,
+   case .failed(_) = self?.mlxModelService.downloadState {
     // Only reset on permanent failure, not during normal loading
     self?.isInitialized = false
 }
@@ -748,6 +749,11 @@ if !isReady && self?.isInitialized == true && self?.mlxModelService.downloadStat
 - **Cache Debug**: ~15 verbose messages per startup suppressed in production
 - **CPU Overhead**: Eliminated polling loops reducing startup CPU usage
 - **Log Volume**: 95% reduction in repetitive initialization coordination messages
+
+**Implementation Notes**:
+- **Swift Pattern Matching**: Uses proper `case .failed(_) =` syntax for associated value enum matching
+- **Compilation Verified**: All async notification patterns compile successfully with Swift 6
+- **Production Ready**: Clean startup experience with full debug capability available on demand
 
 **Before**:
 ```

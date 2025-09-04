@@ -558,8 +558,9 @@ if !isReady && self?.isInitialized == true {
     self?.isInitialized = false  // ❌ Problematic during startup
 }
 
-// AFTER: Only reset on permanent failure
-if !isReady && self?.isInitialized == true && self?.mlxModelService.downloadState == .failed {
+// AFTER: Only reset on permanent failure (with proper pattern matching)
+if !isReady && self?.isInitialized == true,
+   case .failed(_) = self?.mlxModelService.downloadState {
     AppLog.debug("🔄 [AI-ASSISTANT] Resetting initialization due to model failure")
     self?.isInitialized = false  // ✅ Only when actually failed
 }
@@ -572,6 +573,24 @@ if !isReady && self?.isInitialized == true && self?.mlxModelService.downloadStat
 - **Cache Debug Suppression**: ~15 verbose file validation messages suppressed per startup
 - **CPU Efficiency**: Eliminated polling loops reducing startup CPU overhead
 - **Initialization Conflicts**: 100% elimination of duplicate AI assistant initialization attempts
+
+#### Final Implementation Notes
+
+**Compilation Requirements**: The duplicate initialization prevention uses Swift pattern matching for associated value enums:
+```swift
+// Correct pattern matching for DownloadState.failed(String)
+case .failed(_) = self?.mlxModelService.downloadState
+```
+
+**Production vs Debug Behavior**:
+- **Production**: Clean, professional startup with essential messages only
+- **Debug**: Full diagnostic capability with `defaults write com.example.Web App.VerboseLogs -bool YES`
+
+**Async Coordination Benefits**:
+- **Zero Polling**: Eliminated all polling loops in favor of Swift continuation-based waiting
+- **Clean Logs**: Single notification message instead of repetitive status checks  
+- **CPU Efficiency**: Removed background timer overhead from coordination logic
+- **Swift 6 Compliant**: Proper async/await patterns with MainActor isolation
 
 #### Integration with Services
 
