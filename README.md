@@ -42,7 +42,7 @@ https://github.com/user-attachments/assets/85629abc-5527-4345-b1a8-a988e0417c0a
 - **Privacy-First**: AI processing happens locally on device
 - **Smart Initialization**: Intelligent startup that recognizes existing downloads and avoids conflicts
 - **Manual Download Support**: Seamless coordination with manual download processes
-- **Performance Optimized**: Clean production startup with essential-only logging, optimized auto-read thresholds, debounced AI readiness checks, and comprehensive debug mode for development
+- **Performance Optimized**: Clean production startup with essential-only logging, optimized auto-read thresholds, debounced AI readiness checks, reduced log noise, and comprehensive debug mode for development
 - **Swift 6 Compliant**: Full concurrency support with proper MainActor isolation and Sendable compliance
 - **Smart Assistance**: Integrated AI sidebar for web content analysis with TL;DR and page + history context. (Still rough with bugs, but nice to play and have fun)
 
@@ -133,15 +133,17 @@ Web/
 
 The application uses intelligent logging that adapts to build configuration:
 
-#### Production Builds (Release)
-- **Clean Startup**: Only essential status messages shown
-- **Minimal Output**: Core functionality updates without verbose details
+#### Production Builds (Release) - v2.11.0
+- **Clean Startup**: Only essential status messages shown - emojis and debug tags automatically removed
+- **Minimal Output**: Core functionality updates without verbose details or repetitive logging
+- **Enhanced Filtering**: Comprehensive system-level error suppression (WebKit, Metal, network warnings)
+- **Optimized Performance**: Throttled guard messages and duplicate initialization prevention
 - **Professional Experience**: Clean logs suitable for end users
 
 ```
-🚀 AI model initialization started
-🚀 AI model found - loading existing files  
-✅ AI model ready
+AI model initialization started
+AI model found - loading existing files  
+AI model ready
 AI Assistant initialization complete
 ```
 
@@ -166,7 +168,7 @@ defaults write com.example.Web App.VerboseLogs -bool NO
 - `⚡ [SINGLETON]`: Service initialization tracking and lifecycle management
 - `🔍 [INIT STATE]`: Detailed state tracking during initialization (v2.10.0)
 - `🔍 [AI READY CHECK]`: Readiness check analysis with reasoning (v2.10.0)
-- `🔍 [GUARD]`: Coordination logic execution and waiting behavior (v2.10.0)
+- `🔍 [GUARD]`: Coordination logic execution and waiting behavior with throttled logging (v2.11.0)
 
 #### Race Condition Debugging (v2.10.0)
 Enhanced debug logging now includes comprehensive state tracking to identify and resolve initialization race conditions:
@@ -180,6 +182,24 @@ Enhanced debug logging now includes comprehensive state tracking to identify and
 ```
 
 This prevents false "download needed" messages when model files already exist.
+
+#### Logging Optimizations (v2.11.0)
+Enhanced logging system to reduce noise and improve production experience:
+
+**Production Build Improvements**:
+- **Message Cleaning**: Automatic removal of emojis and debug tags in release builds
+- **System Error Filtering**: Suppression of benign WebKit, Metal, and network warnings
+- **Duplicate Prevention**: Guard against multiple initialization attempts causing log spam
+
+**Debug Build Enhancements**:
+- **Throttled Logging**: Guard wait messages reduced from every 0.2s to every 1s interval
+- **Full Formatting**: Preserves all emojis and debug markers for development visibility
+- **Verbose Control**: Fine-grained control via `App.VerboseLogs` UserDefault
+
+```bash
+# Reduced logging frequency example (debug builds)
+🔍 [GUARD] Waiting for smart init... current state: isModelReady=false (every 1s vs 0.2s)
+```
 
 ## AI Features
 
