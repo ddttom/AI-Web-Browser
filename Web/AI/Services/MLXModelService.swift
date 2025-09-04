@@ -183,9 +183,14 @@ class MLXModelService: ObservableObject {
             AppLog.debug("🛡️ [GUARD] initializeAI() blocked - smart initialization already in progress")
             AppLog.debug("🛡️ [GUARD] initializeAI() waiting for concurrent initialization to complete")
 
-            // Wait for the smart initialization to complete
+            // Wait for the smart initialization to complete with reduced logging frequency
+            var waitCount = 0
             while Self.isInitializationInProgress {
-                AppLog.debug("🔍 [GUARD] Waiting for smart init... current state: isModelReady=\(isModelReady), downloadState=\(downloadState)")
+                // Only log every 5 iterations (1 second intervals) to reduce noise
+                if waitCount % 5 == 0 {
+                    AppLog.debug("🔍 [GUARD] Waiting for smart init... current state: isModelReady=\(isModelReady), downloadState=\(downloadState)")
+                }
+                waitCount += 1
                 try? await Task.sleep(nanoseconds: 200_000_000)  // 0.2 seconds
             }
 

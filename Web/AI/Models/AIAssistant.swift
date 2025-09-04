@@ -90,6 +90,13 @@ class AIAssistant: ObservableObject {
 
     /// FIXED: Initialize the AI system with safe parallel tasks (race condition fixed)
     func initialize() async {
+        // Guard against duplicate initialization attempts
+        let currentInitState = await MainActor.run { self.isInitialized }
+        if currentInitState {
+            AppLog.debug("🛡️ [AI-ASSISTANT] Already initialized - skipping duplicate initialization")
+            return
+        }
+        
         await updateStatus("Initializing AI system...")
 
         do {

@@ -24,29 +24,46 @@ enum AppLog {
     static func debug(_ message: String) {
         guard isVerboseEnabled else { return }
         guard !shouldSuppressMessage(message) else { return }
-        logger.debug("\(message)")
+        logger.debug("\(cleanMessageForProduction(message))")
     }
 
     static func info(_ message: String) {
         guard isVerboseEnabled else { return }
         guard !shouldSuppressMessage(message) else { return }
-        logger.info("\(message)")
+        logger.info("\(cleanMessageForProduction(message))")
     }
 
     static func warn(_ message: String) {
         guard !shouldSuppressMessage(message) else { return }
-        logger.warning("\(message)")
+        logger.warning("\(cleanMessageForProduction(message))")
     }
 
     static func error(_ message: String) {
         guard !shouldSuppressMessage(message) else { return }
-        logger.error("\(message)")
+        logger.error("\(cleanMessageForProduction(message))")
     }
     
     /// Essential logging that shows in both dev and production (minimal, important messages only)
     static func essential(_ message: String) {
         guard !shouldSuppressMessage(message) else { return }
-        logger.info("\(message)")
+        logger.info("\(cleanMessageForProduction(message))")
+    }
+
+    // MARK: - Message Cleaning
+    
+    /// Cleans messages for production by removing emojis and verbose debug markers in release builds
+    private static func cleanMessageForProduction(_ message: String) -> String {
+        #if DEBUG
+            return message  // Keep all formatting in debug builds
+        #else
+            // Remove emojis and debug markers in release builds
+            let cleanedMessage = message
+                .replacingOccurrences(of: #"[🚀🔥🔍🛡️✅❌⚠️🖥️📡🆕💾🏁🔓🔄🚫]"#, with: "", options: .regularExpression)
+                .replacingOccurrences(of: #"\[.*?\]"#, with: "", options: .regularExpression)  // Remove debug tags like [INIT AI]
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+            
+            return cleanedMessage.isEmpty ? message : cleanedMessage  // Fallback if cleaning removes everything
+        #endif
     }
 
     // MARK: - Metal Error Filtering
@@ -68,6 +85,16 @@ enum AppLog {
             "IconRendering framework",
             "Metal device creation failed",
             "MTLCreateSystemDefaultDevice",
+            "WebKit::WebFramePolicyListenerProxy::ignore",
+            "Unable to create bundle at URL ((null))",
+            "AFIsDeviceGreymatterEligible Missing entitlements",
+            "nw_path_necp_check_for_updates Failed to copy updated result",
+            "Unable to hide query parameters from script (missing data)",
+            "Unable to obtain a task name port right for pid",
+            "Failed to change to usage state",
+            "WKErrorDomain Code=7",
+            "Failed to load content rules",
+            "Rule list lookup failed",
         ]
 
         return suppressedPatterns.contains { pattern in
@@ -90,11 +117,11 @@ enum AppLog {
     /// Logs a Metal-related message with special handling
     static func metalInfo(_ message: String) {
         // Always log Metal diagnostic info, even when filtering is enabled
-        logger.info("🔧 [Metal] \(message)")
+        logger.info("\(cleanMessageForProduction("🔧 [Metal] \(message)"))")
     }
 
     /// Logs a Metal warning that bypasses filtering
     static func metalWarn(_ message: String) {
-        logger.warning("⚠️ [Metal] \(message)")
+        logger.warning("\(cleanMessageForProduction("⚠️ [Metal] \(message)"))")
     }
 }
