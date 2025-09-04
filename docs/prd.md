@@ -788,6 +788,132 @@ static let webBody = Font.system(size: 15, weight: .regular, design: .default)
 - Resource usage patterns during different startup scenarios
 - User-reported performance improvements and feedback
 
+## Production Logging Optimization (v2.9.0)
+
+### Clean Production Experience
+
+The latest release introduces intelligent logging that provides clean, professional startup experience in production while maintaining comprehensive debugging capabilities for development.
+
+#### Production Build Logging (Release Mode)
+**Problem**: Verbose debug messages overwhelmed production logs, making the application appear cluttered and unprofessional for end users.
+
+**Solution**: Build-aware logging system that automatically adapts output based on compilation target:
+
+```swift
+// AppLog.swift - Build-aware logging
+static var isVerboseEnabled: Bool {
+    #if DEBUG
+        return UserDefaults.standard.bool(forKey: "App.VerboseLogs")
+    #else
+        return false  // Always disable verbose logging in release builds
+    #endif
+}
+
+// Essential logging for production
+static func essential(_ message: String) {
+    guard !shouldSuppressMessage(message) else { return }
+    logger.info("\(message)")
+}
+```
+
+#### Logging Architecture Changes
+
+**Before (Debug Output Leaked to Production)**:
+```
+🚀 [SINGLETON] MLXModelService initializing
+🚀 [SMART INIT] === SMART STARTUP INITIALIZATION STARTED ===
+🚀 [SMART INIT] Model configuration loaded:
+🚀 [SMART INIT]   Name: Gemma 2 2B 4-bit (MLX)
+🚀 [SMART INIT]   Model ID: gemma3_2B_4bit
+🚀 [SMART INIT]   HuggingFace Repo: mlx-community/gemma-2-2b-it-4bit
+🔍 [CACHE DEBUG] Checking for complete model files for ID: gemma3_2B_4bit
+🔍 [CACHE DEBUG] Directory cache miss - filesystem scan complete
+🔍 [CACHE DEBUG] ✅ Found file: config.json (982 bytes)
+🔍 [CACHE DEBUG] ✅ Found file: tokenizer.json (17525357 bytes)
+... (50+ verbose debug messages)
+```
+
+**After (Clean Production Experience)**:
+```
+Core Data store loaded: Web.sqlite
+🚀 AI model initialization started
+🚀 AI model found - loading existing files  
+✅ AI model ready
+AI Assistant initialization complete
+```
+
+#### Implementation Benefits
+
+**User Experience Improvements**:
+- **Professional Appearance**: Clean, focused startup messages suitable for production
+- **Faster Perceived Startup**: Reduced visual noise creates impression of faster loading
+- **Clear Status Updates**: Essential milestones communicated without overwhelming detail
+- **Troubleshooting Ready**: Full debug information available when needed via UserDefaults flag
+
+**Developer Experience Enhancements**:
+- **Flexible Debugging**: Full verbose logging available in debug builds
+- **Performance Monitoring**: Detailed metrics for cache hits, timing, and coordination
+- **Build-Aware Logic**: Automatic adaptation without manual configuration changes
+- **Categorized Logging**: Organized debug categories for efficient troubleshooting
+
+#### Debug Mode Configuration
+
+**Development Debug Control**:
+```bash
+# Enable full debug logging (DEBUG builds only)
+defaults write com.example.Web App.VerboseLogs -bool YES
+
+# Return to essential-only logging
+defaults write com.example.Web App.VerboseLogs -bool NO
+```
+
+**Log Category Reference**:
+- `🚀 [SMART INIT]`: AI initialization flow and model loading
+- `🔍 [CACHE DEBUG]`: File system cache operations and validation  
+- `🚀 [MLX RUNNER]`: Model execution and configuration management
+- `📡 [ASYNC NOTIFY]`: Async coordination and notification events
+- `⚡ [SINGLETON]`: Service lifecycle and singleton pattern validation
+- `🎯 [CACHE HIT/MISS]`: Cache performance metrics and efficiency tracking
+
+#### Performance Impact Measurements
+
+**Startup Log Quality**:
+- **Before**: 50+ verbose initialization messages cluttering output
+- **After**: 4-5 focused essential status messages in production
+- **Debug Retention**: Full detail available on demand in development builds
+
+**User Perception**:
+- **Professional Appearance**: Clean logs enhance perceived application quality  
+- **Reduced Cognitive Load**: Essential information only, eliminating noise
+- **Faster Startup Feel**: Less visual activity creates impression of efficiency
+- **Support-Friendly**: Clean logs easier for user bug reports and support
+
+### Integration with Error Filtering
+
+The production logging optimization works alongside existing Metal diagnostics error filtering:
+
+```swift
+// MetalDiagnostics.swift - Enhanced error suppression
+static func shouldSuppressMessage(_ message: String) -> Bool {
+    let suppressedPatterns = [
+        "precondition failure: unable to load binary archive for shader library",
+        "IconRendering.framework/Resources/binary.metallib", 
+        "Failed to load content rules",
+        "Rule list lookup failed",
+        "WKErrorDomain Code=7",
+    ]
+    // Framework-level errors filtered for cleaner production logs
+}
+```
+
+### Future Logging Enhancements
+
+#### Phase 3 Considerations
+- **Performance Analytics**: Optional telemetry for startup timing analysis
+- **Adaptive Verbosity**: Dynamic log level adjustment based on detected issues
+- **User-Configurable Levels**: Settings panel for log verbosity control
+- **Remote Debugging**: Secure remote log collection for support scenarios
+
 ## Conclusion
 
-The intelligent AI initialization strategy maintains the desired startup AI initialization while eliminating conflicts with manual downloads. The recent async/await optimization significantly improves startup performance by replacing resource-intensive polling with efficient notification-based coordination. Combined with the singleton pattern, intelligent caching, and latest startup optimizations, these improvements provide users with a robust, predictable, and performant experience that respects their choice of download method while ensuring AI features are always available when needed.
+The intelligent AI initialization strategy maintains the desired startup AI initialization while eliminating conflicts with manual downloads. The recent async/await optimization significantly improves startup performance by replacing resource-intensive polling with efficient notification-based coordination. Combined with the singleton pattern, intelligent caching, startup optimizations, and production-ready logging, these improvements provide users with a robust, predictable, and performant experience that respects their choice of download method while ensuring AI features are always available when needed.

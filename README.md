@@ -42,7 +42,7 @@ https://github.com/user-attachments/assets/85629abc-5527-4345-b1a8-a988e0417c0a
 - **Privacy-First**: AI processing happens locally on device
 - **Smart Initialization**: Intelligent startup that recognizes existing downloads and avoids conflicts
 - **Manual Download Support**: Seamless coordination with manual download processes
-- **Performance Optimized**: Reduced startup time through optimized initialization, improved auto-read thresholds, debounced AI readiness checks, and minimal logging
+- **Performance Optimized**: Clean production startup with essential-only logging, optimized auto-read thresholds, debounced AI readiness checks, and comprehensive debug mode for development
 - **Swift 6 Compliant**: Full concurrency support with proper MainActor isolation and Sendable compliance
 - **Smart Assistance**: Integrated AI sidebar for web content analysis with TL;DR and page + history context. (Still rough with bugs, but nice to play and have fun)
 
@@ -126,6 +126,44 @@ Web/
 - **MLXRunner**: Local AI model execution
 - **DownloadManager**: File download handling
 - **BookmarkService**: Bookmark management
+
+## Development & Debugging
+
+### Logging Configuration
+
+The application uses intelligent logging that adapts to build configuration:
+
+#### Production Builds (Release)
+- **Clean Startup**: Only essential status messages shown
+- **Minimal Output**: Core functionality updates without verbose details
+- **Professional Experience**: Clean logs suitable for end users
+
+```
+🚀 AI model initialization started
+🚀 AI model found - loading existing files  
+✅ AI model ready
+AI Assistant initialization complete
+```
+
+#### Development Builds (Debug)
+- **Comprehensive Logging**: Full debug information available
+- **Performance Tracking**: Detailed startup and cache performance metrics  
+- **Troubleshooting**: Extensive diagnostic information
+
+```bash
+# Enable verbose logging in debug builds
+defaults write com.example.Web App.VerboseLogs -bool YES
+
+# Disable verbose logging  
+defaults write com.example.Web App.VerboseLogs -bool NO
+```
+
+#### Debug Log Categories
+- `🚀 [SMART INIT]`: AI model initialization flow
+- `🔍 [CACHE DEBUG]`: File system cache operations
+- `🚀 [MLX RUNNER]`: Model loading and execution
+- `📡 [ASYNC NOTIFY]`: Async coordination events
+- `⚡ [SINGLETON]`: Service initialization tracking
 
 ## AI Features
 
