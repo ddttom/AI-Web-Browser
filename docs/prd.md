@@ -914,6 +914,151 @@ static func shouldSuppressMessage(_ message: String) -> Bool {
 - **User-Configurable Levels**: Settings panel for log verbosity control
 - **Remote Debugging**: Secure remote log collection for support scenarios
 
+## Race Condition Fix & Advanced Debugging (v2.10.0)
+
+### False Download Detection Issue Resolution
+
+#### Problem Analysis
+Through comprehensive debug logging investigation, identified a critical race condition causing false "download needed" messages despite model files being present:
+
+**Root Cause**: AI readiness checks occurring before smart initialization completion, leading to:
+- `isModelReady: false` and `downloadState: checking` at startup
+- Premature "MLX model needs download: 1.4 GB" messages  
+- User confusion when files already exist and load successfully
+
+**Timeline of Issue**:
+```
+1. MLXModelService initializes (isModelReady=false, downloadState=notStarted)
+2. Smart initialization starts in background Task  
+3. AI readiness check happens IMMEDIATELY → false negative
+4. System displays "download needed" message
+5. Smart initialization finds files and loads model successfully
+6. Model becomes ready, contradicting earlier message
+```
+
+#### Debug Logging Enhancement
+
+**Comprehensive State Tracking**: Added detailed debug categories to trace initialization flow:
+
+```swift
+// Enhanced AI readiness check with full state visibility
+AppLog.debug("🔍 [AI READY CHECK] === isAIReady() called ===")
+AppLog.debug("🔍 [AI READY CHECK] isModelReady: \(isModelReady)")
+AppLog.debug("🔍 [AI READY CHECK] downloadState: \(downloadState)")
+AppLog.debug("🔍 [AI READY CHECK] Smart init in progress: \(Self.isInitializationInProgress)")
+AppLog.debug("🔍 [AI READY CHECK] Current model exists: \(currentModel != nil)")
+AppLog.debug("🔍 [AI READY CHECK] MLX container loaded: \(SimplifiedMLXRunner.shared.isModelLoaded)")
+AppLog.debug("🔍 [AI READY CHECK] Reason: isModelReady=\(isModelReady), downloadState=\(downloadState)")
+```
+
+**State Change Monitoring**: Tracks initialization state at every critical point:
+
+```swift
+// Initialization state tracking
+AppLog.debug("🔍 [INIT STATE] Initial state: isModelReady=\(isModelReady), downloadState=\(downloadState)")
+AppLog.debug("🔍 [INIT STATE] Starting smart initialization...")
+AppLog.debug("🔍 [SMART INIT] Setting isModelReady = true")
+AppLog.debug("🔍 [SMART INIT] Setting downloadState = .ready")
+AppLog.debug("🔍 [SMART INIT] Model state updated: isModelReady=\(isModelReady), downloadState=\(downloadState)")
+```
+
+#### Race Condition Resolution
+
+**Problem**: `initializeAI()` guard logic immediately returned when smart initialization was in progress, preventing proper coordination.
+
+**Solution**: Enhanced guard logic to wait for smart initialization completion:
+
+```swift
+// Before: Immediate return causing race condition
+if Self.isInitializationInProgress {
+    AppLog.debug("🛡️ [GUARD] initializeAI() blocked - smart initialization already in progress")  
+    return  // ❌ Race condition: doesn't wait for completion
+}
+
+// After: Proper coordination with waiting logic
+if Self.isInitializationInProgress {
+    AppLog.debug("🛡️ [GUARD] initializeAI() waiting for concurrent initialization to complete")
+    
+    while Self.isInitializationInProgress {
+        AppLog.debug("🔍 [GUARD] Waiting for smart init... current state: isModelReady=\(isModelReady)")
+        try? await Task.sleep(nanoseconds: 200_000_000)  // 0.2 seconds
+    }
+    
+    if await isAIReady() {
+        AppLog.debug("🔥 [INIT AI] MLX AI model now ready after waiting for smart init")
+        return  // ✅ Proper coordination completed
+    }
+}
+```
+
+#### Debug Categories Reference
+
+**New Debug Categories for Troubleshooting**:
+- `🔍 [INIT STATE]`: Initialization state changes and timing
+- `🔍 [AI READY CHECK]`: Detailed readiness check analysis with reasoning
+- `🔍 [INIT AI]`: State tracking in initializeAI() method calls
+- `🔍 [GUARD]`: Guard logic execution and waiting behavior  
+- `🔍 [SMART INIT]`: Smart initialization flow and state updates
+
+#### Expected Behavior After Fix
+
+**Before (Race Condition)**:
+```
+🔍 [AI READY CHECK] isModelReady: false, downloadState: checking
+AI Status: MLX AI model not found - preparing download...
+MLX model needs download: 1.4 GB
+🔍 [CACHE DEBUG] ✅ All required files found  // Contradiction!
+🚀 [MLX RUNNER] ✅ Model loaded successfully    // Files were there!
+```
+
+**After (Proper Coordination)**:
+```
+🔍 [AI READY CHECK] Smart init in progress: true
+🛡️ [GUARD] Waiting for concurrent initialization to complete
+🔍 [GUARD] Smart init completed. Final state: isModelReady=true, downloadState=ready
+🔥 [INIT AI] MLX AI model now ready after waiting for smart init
+```
+
+#### Implementation Benefits
+
+**User Experience Improvements**:
+- **Accurate Status Messages**: No more false "download needed" messages when files exist
+- **Consistent Behavior**: Proper coordination eliminates contradictory status updates
+- **Faster Perceived Startup**: No confusing download messages followed by instant loading
+- **Reliable State**: UI status accurately reflects actual system state
+
+**Developer Experience Enhancements**:
+- **Comprehensive Debugging**: Full visibility into initialization state and timing
+- **Race Condition Detection**: Debug logging reveals coordination issues
+- **Performance Analysis**: Detailed timing information for optimization
+- **Root Cause Analysis**: Clear trace of state changes and decision points
+
+### Technical Implementation Details
+
+**MLXRunner Integration**: Added `isModelLoaded` computed property for accurate container status checking:
+
+```swift
+// SimplifiedMLXRunner.swift
+var isModelLoaded: Bool {
+    return modelContainer != nil
+}
+```
+
+**Initialization Coordination**: Enhanced state management with proper async/await patterns:
+- Smart initialization runs in background Task
+- AI readiness checks coordinate with initialization state  
+- Guard logic prevents race conditions through proper waiting
+- State updates are atomic and properly sequenced
+
+### Validation and Testing
+
+**Test Scenarios Validated**:
+- ✅ **Cold Startup with Existing Models**: No false download messages
+- ✅ **Concurrent Initialization Requests**: Proper coordination and waiting
+- ✅ **Fast Successive Readiness Checks**: Debouncing and state consistency  
+- ✅ **Smart Init Completion Detection**: Accurate state transitions
+- ✅ **Debug Logging Coverage**: Full visibility into all execution paths
+
 ## Conclusion
 
 The intelligent AI initialization strategy maintains the desired startup AI initialization while eliminating conflicts with manual downloads. The recent async/await optimization significantly improves startup performance by replacing resource-intensive polling with efficient notification-based coordination. Combined with the singleton pattern, intelligent caching, startup optimizations, and production-ready logging, these improvements provide users with a robust, predictable, and performant experience that respects their choice of download method while ensuring AI features are always available when needed.

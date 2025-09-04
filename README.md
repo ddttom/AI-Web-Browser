@@ -159,11 +159,27 @@ defaults write com.example.Web App.VerboseLogs -bool NO
 ```
 
 #### Debug Log Categories
-- `🚀 [SMART INIT]`: AI model initialization flow
-- `🔍 [CACHE DEBUG]`: File system cache operations
-- `🚀 [MLX RUNNER]`: Model loading and execution
-- `📡 [ASYNC NOTIFY]`: Async coordination events
-- `⚡ [SINGLETON]`: Service initialization tracking
+- `🚀 [SMART INIT]`: AI model initialization flow and state transitions
+- `🔍 [CACHE DEBUG]`: File system cache operations and validation
+- `🚀 [MLX RUNNER]`: Model loading and execution with container status
+- `📡 [ASYNC NOTIFY]`: Async coordination events and notification system
+- `⚡ [SINGLETON]`: Service initialization tracking and lifecycle management
+- `🔍 [INIT STATE]`: Detailed state tracking during initialization (v2.10.0)
+- `🔍 [AI READY CHECK]`: Readiness check analysis with reasoning (v2.10.0)
+- `🔍 [GUARD]`: Coordination logic execution and waiting behavior (v2.10.0)
+
+#### Race Condition Debugging (v2.10.0)
+Enhanced debug logging now includes comprehensive state tracking to identify and resolve initialization race conditions:
+
+```bash
+# Example debug output showing race condition resolution
+🔍 [AI READY CHECK] Smart init in progress: true
+🛡️ [GUARD] Waiting for concurrent initialization to complete  
+🔍 [GUARD] Smart init completed. Final state: isModelReady=true, downloadState=ready
+🔥 [INIT AI] MLX AI model now ready after waiting for smart init
+```
+
+This prevents false "download needed" messages when model files already exist.
 
 ## AI Features
 

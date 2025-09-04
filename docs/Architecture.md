@@ -481,12 +481,143 @@ class MetalDiagnostics {
 - Performance metric correlation between related services
 - Error propagation and handling across architectural layers
 
+### Advanced Debugging & Race Condition Resolution (v2.10.0)
+
+#### Initialization Race Condition Analysis
+
+**Problem Identified**: Through comprehensive debug logging, discovered a race condition in AI initialization causing false "download needed" messages despite model files being present.
+
+**Architecture Impact**:
+```mermaid
+sequenceDiagram
+    participant App as Application
+    participant MLX as MLXModelService  
+    participant Smart as Smart Initialization
+    participant Check as AI Readiness Check
+    
+    App->>MLX: Initialize
+    MLX->>Smart: Start background Task
+    App->>Check: isAIReady() 
+    Check->>Check: isModelReady=false, state=checking
+    Check-->>App: ❌ Download needed!
+    Smart->>Smart: Find all files ✅
+    Smart->>MLX: Set ready state
+    MLX-->>App: Model loaded successfully
+```
+
+#### Debug Architecture Enhancement
+
+**Comprehensive State Tracking**: Added detailed monitoring at every critical juncture:
+
+| Debug Category | Purpose | Example |
+|----------------|---------|---------|
+| `🔍 [INIT STATE]` | Initialization state transitions | `Initial state: isModelReady=false, downloadState=notStarted` |
+| `🔍 [AI READY CHECK]` | Readiness check analysis | `Smart init in progress: true, MLX container loaded: false` |
+| `🔍 [GUARD]` | Coordination logic execution | `Waiting for smart init... current state: isModelReady=false` |
+| `🔍 [SMART INIT]` | Smart initialization flow | `Setting isModelReady = true, downloadState = .ready` |
+
+**State Visibility Architecture**:
+```swift
+// MLXModelService.swift - Enhanced visibility
+class MLXModelService: ObservableObject {
+    @Published var isModelReady: Bool = false        // ← Tracked
+    @Published var downloadState: DownloadState     // ← Tracked  
+    private static var isInitializationInProgress   // ← Tracked
+    
+    func isAIReady() async -> Bool {
+        // Full state logging for debugging
+        AppLog.debug("🔍 [AI READY CHECK] isModelReady: \(isModelReady)")
+        AppLog.debug("🔍 [AI READY CHECK] downloadState: \(downloadState)")
+        AppLog.debug("🔍 [AI READY CHECK] Smart init in progress: \(Self.isInitializationInProgress)")
+        // ... comprehensive state analysis
+    }
+}
+```
+
+#### Race Condition Resolution Architecture
+
+**Problem**: Immediate return from guard logic prevented proper coordination:
+
+```swift
+// BEFORE: Race condition prone
+if Self.isInitializationInProgress {
+    return  // ❌ No coordination
+}
+```
+
+**Solution**: Async coordination with proper waiting:
+
+```swift
+// AFTER: Proper coordination
+if Self.isInitializationInProgress {
+    while Self.isInitializationInProgress {
+        AppLog.debug("🔍 [GUARD] Waiting for smart init...")
+        try? await Task.sleep(nanoseconds: 200_000_000)
+    }
+    
+    if await isAIReady() {
+        return  // ✅ Coordinated completion
+    }
+}
+```
+
+#### Integration with Service Architecture
+
+**MLXRunner Enhancement**: Added state visibility to SimplifiedMLXRunner:
+
+```swift
+// SimplifiedMLXRunner.swift
+final class SimplifiedMLXRunner: ObservableObject {
+    private var modelContainer: ModelContainer?
+    
+    /// Public interface for container status
+    var isModelLoaded: Bool {
+        return modelContainer != nil
+    }
+}
+```
+
+**Cross-Service Coordination**: Enhanced communication between architectural layers:
+- MLXModelService ↔ SimplifiedMLXRunner state synchronization
+- AI readiness checks coordinate with initialization state
+- Debug logging provides cross-service visibility
+- Async/await patterns ensure proper sequencing
+
+#### Performance & Reliability Impact
+
+**Before Race Condition Fix**:
+- False download messages confuse users
+- Contradictory status updates damage trust
+- Race conditions create unpredictable behavior
+- Debug information insufficient for troubleshooting
+
+**After Race Condition Fix**:
+- Accurate status messages throughout startup
+- Consistent behavior with proper coordination  
+- Reliable state management with async/await patterns
+- Comprehensive debug logging for issue resolution
+
+#### Architecture Benefits
+
+**Debugging Architecture**:
+- **Full State Visibility**: Every critical state change is logged and traceable
+- **Timing Analysis**: Debug logs show exact sequence of initialization events
+- **Race Condition Detection**: Logging reveals coordination issues before they impact users
+- **Root Cause Analysis**: Comprehensive trace enables rapid issue identification
+
+**Coordination Architecture**:
+- **Async/Await Integration**: Proper coordination between concurrent initialization tasks
+- **State Synchronization**: Atomic state updates prevent race conditions
+- **Guard Logic**: Prevents duplicate operations while ensuring completion
+- **Notification System**: Proper async continuation management for waiters
+
 ### Future Logging Enhancements
 
 #### Planned Improvements
-- **Structured Logging**: JSON-formatted logs for better parsing
-- **Performance Analytics**: Built-in timing and resource usage metrics
-- **Remote Debugging**: Secure log transmission for support scenarios  
-- **Adaptive Verbosity**: Dynamic adjustment based on detected issues
+- **Structured Logging**: JSON-formatted logs for better parsing and analysis
+- **Performance Analytics**: Built-in timing and resource usage metrics with correlation
+- **Remote Debugging**: Secure log transmission for production issue diagnosis
+- **Adaptive Verbosity**: Dynamic adjustment based on detected issues and system state
+- **State Machine Visualization**: Debug output that shows state transitions graphically
 
-This architecture provides a solid foundation for a privacy-focused, AI-enhanced web browser that can scale and evolve with changing requirements while maintaining security, performance, and debugging standards.
+This architecture provides a solid foundation for a privacy-focused, AI-enhanced web browser that can scale and evolve with changing requirements while maintaining security, performance, and debugging standards. The comprehensive debugging and race condition resolution ensure reliable operation and rapid issue identification.
