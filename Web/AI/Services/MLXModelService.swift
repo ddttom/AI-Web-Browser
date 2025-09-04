@@ -51,7 +51,7 @@ class MLXModelService: ObservableObject {
     private let fileManager = FileManager.default
     private var downloadTask: Task<Void, Error>?
     private var lastReadyCheck: Date?
-    private let readyCheckThreshold: TimeInterval = 0.5
+    private let readyCheckThreshold: TimeInterval = 2.0
     private var initializationTask: Task<Void, Error>?
     private var readinessCompletionHandlers: [CheckedContinuation<Bool, Never>] = []
 
@@ -65,25 +65,17 @@ class MLXModelService: ObservableObject {
         }
         MLXModelService.isInitialized = true
         
-        NSLog("🚀 [SINGLETON] MLXModelService SINGLETON INITIALIZATION STARTED")
-        AppLog.debug("🚀 [SINGLETON] === MLXModelService SINGLETON INITIALIZATION STARTED ===")
+        AppLog.debug("🚀 [SINGLETON] MLXModelService initializing")
 
         Task { @MainActor in
             currentModel = MLXModelConfiguration.gemma3_2B_4bit
-            NSLog("🚀 [CRITICAL] Default model configuration set: gemma3_2B_4bit")
-            AppLog.debug("🚀 [INIT] Default model configuration set: gemma3_2B_4bit")
+            AppLog.debug("🚀 [INIT] Default model set: gemma3_2B_4bit")
         }
 
         Task {
-            NSLog("🚀 [SINGLETON] Starting smart startup initialization task...")
-            AppLog.debug("🚀 [SINGLETON] Starting smart startup initialization task...")
             await performSmartStartupInitialization()
-            NSLog("🚀 [SINGLETON] Smart startup initialization task completed")
-            AppLog.debug("🚀 [SINGLETON] Smart startup initialization task completed")
+            AppLog.debug("🚀 [SINGLETON] MLXModelService ready")
         }
-
-        NSLog("🚀 [SINGLETON] MLXModelService singleton init completed - smart startup initialization scheduled")
-        AppLog.debug("🚀 [SINGLETON] MLXModelService singleton init completed - smart startup initialization scheduled")
     }
 
     deinit {
@@ -166,7 +158,7 @@ class MLXModelService: ObservableObject {
 
     /// Start AI initialization - downloads model if needed
     func initializeAI() async throws {
-        AppLog.debug("🔥 [INIT AI] === initializeAI() CALLED - BYPASSING SMART INIT ===")
+        AppLog.debug("🔥 [INIT AI] initializeAI() called")
 
         // If already ready, no action needed
         if await isAIReady() {

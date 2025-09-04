@@ -42,7 +42,7 @@ https://github.com/user-attachments/assets/85629abc-5527-4345-b1a8-a988e0417c0a
 - **Privacy-First**: AI processing happens locally on device
 - **Smart Initialization**: Intelligent startup that recognizes existing downloads and avoids conflicts
 - **Manual Download Support**: Seamless coordination with manual download processes
-- **Performance Optimized**: Singleton patterns and async/await coordination eliminate redundant initialization and improve responsiveness
+- **Performance Optimized**: Reduced startup time through optimized initialization, improved auto-read thresholds, debounced AI readiness checks, and minimal logging
 - **Swift 6 Compliant**: Full concurrency support with proper MainActor isolation and Sendable compliance
 - **Smart Assistance**: Integrated AI sidebar for web content analysis with TL;DR and page + history context. (Still rough with bugs, but nice to play and have fun)
 

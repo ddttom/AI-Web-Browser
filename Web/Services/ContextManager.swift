@@ -743,11 +743,11 @@ struct WebpageContext: Identifiable, Codable {
     }
     
     var isHighQuality: Bool {
-        return contentQuality >= 60 && wordCount > 200
+        return contentQuality >= 40 && wordCount > 100
     }
     
     var shouldRetry: Bool {
-        return contentQuality < 40 || wordCount < 100 || !isContentStable
+        return contentQuality < 30 || wordCount < 50 || !isContentStable
     }
 }
 

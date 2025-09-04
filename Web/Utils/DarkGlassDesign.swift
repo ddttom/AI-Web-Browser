@@ -63,10 +63,10 @@ struct GlassModifier: ViewModifier {
 
 // Typography System
 extension Font {
-    static let webH1 = Font.custom("SF Pro Display", size: 28).weight(.semibold)
-    static let webH2 = Font.custom("SF Pro Display", size: 22).weight(.medium)
-    static let webBody = Font.custom("SF Pro Text", size: 15).weight(.regular)
-    static let webMicro = Font.custom("SF Pro Text", size: 12).weight(.regular)
+    static let webH1 = Font.system(size: 28, weight: .semibold, design: .default)
+    static let webH2 = Font.system(size: 22, weight: .medium, design: .default)
+    static let webBody = Font.system(size: 15, weight: .regular, design: .default)
+    static let webMicro = Font.system(size: 12, weight: .regular, design: .default)
 }
 
 // Button Styles
