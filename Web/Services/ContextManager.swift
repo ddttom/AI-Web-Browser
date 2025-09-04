@@ -536,8 +536,8 @@ class ContextManager: ObservableObject {
         var historyParts: [String] = ["Recent browsing history context:"]
         
         for item in historyItems.prefix(maxHistoryItems) {
-            let timeAgo = formatTimeAgo(item.visitDate)
-            let title = item.title.isEmpty ? "Untitled" : item.title
+            let timeAgo = formatTimeAgo(item.lastVisitDate)
+            let title = (item.title?.isEmpty ?? true) ? "Untitled" : item.title!
             let domain = extractDomain(from: item.url) ?? "Unknown"
             
             historyParts.append("• [\(timeAgo)] \(title) (\(domain))")
@@ -551,10 +551,10 @@ class ContextManager: ObservableObject {
         let historyService = HistoryService.shared
         let cutoffDate = Date().addingTimeInterval(-maxHistoryDays)
         
-        return historyService.getRecentItems()
-            .filter { $0.visitDate >= cutoffDate }
+        return historyService.recentHistory
+            .filter { $0.lastVisitDate >= cutoffDate }
             .filter { !shouldExcludeFromHistoryContext($0.url) }
-            .sorted { $0.visitDate > $1.visitDate }
+            .sorted { $0.lastVisitDate > $1.lastVisitDate }
     }
 
     private func shouldExcludeFromHistoryContext(_ url: String) -> Bool {
@@ -694,7 +694,7 @@ struct CachedContext {
 
 /// Represents extracted webpage content and metadata
 struct WebpageContext: Identifiable, Codable {
-    let id = UUID()
+    let id: UUID
     let url: String
     let title: String
     let text: String
@@ -711,6 +711,7 @@ struct WebpageContext: Identifiable, Codable {
     init(url: String, title: String, text: String, headings: [String], links: [String], 
          wordCount: Int, extractionDate: Date, tabId: UUID, contentQuality: Int = 50, 
          isContentStable: Bool = true, frameworksDetected: [String] = [], extractionAttempt: Int = 1) {
+        self.id = UUID()
         self.url = url
         self.title = title
         self.text = text
