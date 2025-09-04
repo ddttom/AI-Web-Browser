@@ -400,22 +400,22 @@ struct SecurityWarningView: View {
 
         if let values = SecCertificateCopyValues(certificate, nil, nil) as? [String: Any] {
             // Extract subject
-            if let subjectDict = values[kSecOIDX509V1SubjectName as String] as? [String: Any],
-                let subjectValue = subjectDict[kSecPropertyKeyValue as String] as? [[String: Any]]
+            if let subjectDict = values["Subject Name"] as? [String: Any],
+                let subjectValue = subjectDict["value"] as? [[String: Any]]
             {
                 subject = extractCommonName(from: subjectValue) ?? "Unknown"
             }
 
             // Extract issuer
-            if let issuerDict = values[kSecOIDX509V1IssuerName as String] as? [String: Any],
-                let issuerValue = issuerDict[kSecPropertyKeyValue as String] as? [[String: Any]]
+            if let issuerDict = values["Issuer Name"] as? [String: Any],
+                let issuerValue = issuerDict["value"] as? [[String: Any]]
             {
                 issuer = extractCommonName(from: issuerValue) ?? "Unknown"
             }
 
             // Extract expiration date
-            if let notAfterDict = values[kSecOIDX509V1ValidityNotAfter as String] as? [String: Any],
-                let notAfterValue = notAfterDict[kSecPropertyKeyValue as String] as? Date
+            if let notAfterDict = values["Not Valid After"] as? [String: Any],
+                let notAfterValue = notAfterDict["value"] as? Date
             {
                 let formatter = DateFormatter()
                 formatter.dateStyle = .medium
@@ -429,9 +429,9 @@ struct SecurityWarningView: View {
 
     private func extractCommonName(from nameArray: [[String: Any]]) -> String? {
         for component in nameArray {
-            if let label = component[kSecPropertyKeyLabel as String] as? String,
+            if let label = component["label"] as? String,
                 label == "Common Name" || label == "CN",
-                let value = component[kSecPropertyKeyValue as String] as? String
+                let value = component["value"] as? String
             {
                 return value
             }
