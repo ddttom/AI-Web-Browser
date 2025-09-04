@@ -66,14 +66,18 @@ class MLXModelService: ObservableObject {
         MLXModelService.isInitialized = true
         
         AppLog.debug("🚀 [SINGLETON] MLXModelService initializing")
+        AppLog.debug("🔍 [INIT STATE] Initial state: isModelReady=\(isModelReady), downloadState=\(downloadState)")
 
         Task { @MainActor in
             currentModel = MLXModelConfiguration.gemma3_2B_4bit
             AppLog.debug("🚀 [INIT] Default model set: gemma3_2B_4bit")
+            AppLog.debug("🔍 [INIT STATE] After model set: isModelReady=\(isModelReady), downloadState=\(downloadState)")
         }
 
         Task {
+            AppLog.debug("🔍 [INIT STATE] Starting smart initialization: isModelReady=\(isModelReady), downloadState=\(downloadState)")
             await performSmartStartupInitialization()
+            AppLog.debug("🔍 [INIT STATE] Smart initialization complete: isModelReady=\(isModelReady), downloadState=\(downloadState)")
             AppLog.debug("🚀 [SINGLETON] MLXModelService ready")
         }
     }
@@ -100,6 +104,9 @@ class MLXModelService: ObservableObject {
         AppLog.debug("🔍 [AI READY CHECK] === isAIReady() called ===")
         AppLog.debug("🔍 [AI READY CHECK] isModelReady: \(isModelReady)")
         AppLog.debug("🔍 [AI READY CHECK] downloadState: \(downloadState)")
+        AppLog.debug("🔍 [AI READY CHECK] Smart init in progress: \(Self.isInitializationInProgress)")
+        AppLog.debug("🔍 [AI READY CHECK] Current model exists: \(currentModel != nil)")
+        AppLog.debug("🔍 [AI READY CHECK] MLX container loaded: \(SimplifiedMLXRunner.shared.isModelLoaded)")
 
         let result = isModelReady && downloadState == .ready
         AppLog.debug("🔍 [AI READY CHECK] Final result: \(result)")
@@ -107,6 +114,7 @@ class MLXModelService: ObservableObject {
         if !result {
             AppLog.debug("🔍 [AI READY CHECK] ❌ AI not ready - this will trigger download")
             AppLog.debug("🔍 [AI READY CHECK] Current model: \(currentModel?.name ?? "nil")")
+            AppLog.debug("🔍 [AI READY CHECK] Reason: isModelReady=\(isModelReady), downloadState=\(downloadState)")
         }
 
         return result
@@ -159,18 +167,37 @@ class MLXModelService: ObservableObject {
     /// Start AI initialization - downloads model if needed
     func initializeAI() async throws {
         AppLog.debug("🔥 [INIT AI] initializeAI() called")
+        AppLog.debug("🔍 [INIT AI] State check: isModelReady=\(isModelReady), downloadState=\(downloadState)")
+        AppLog.debug("🔍 [INIT AI] Smart init in progress: \(Self.isInitializationInProgress)")
 
         // If already ready, no action needed
         if await isAIReady() {
             AppLog.debug("🔥 [INIT AI] MLX AI model already ready - no download needed")
             return
+        } else {
+            AppLog.debug("🔍 [INIT AI] Model not ready, proceeding with initialization checks...")
         }
 
-        // If initialization is already in progress, just wait
+        // If initialization is already in progress, wait for it to complete
         if Self.isInitializationInProgress {
             AppLog.debug("🛡️ [GUARD] initializeAI() blocked - smart initialization already in progress")
-            NSLog("🛡️ [GUARD] initializeAI() waiting for concurrent initialization to complete")
-            return
+            AppLog.debug("🛡️ [GUARD] initializeAI() waiting for concurrent initialization to complete")
+
+            // Wait for the smart initialization to complete
+            while Self.isInitializationInProgress {
+                AppLog.debug("🔍 [GUARD] Waiting for smart init... current state: isModelReady=\(isModelReady), downloadState=\(downloadState)")
+                try? await Task.sleep(nanoseconds: 200_000_000)  // 0.2 seconds
+            }
+
+            AppLog.debug("🔍 [GUARD] Smart init completed. Final state: isModelReady=\(isModelReady), downloadState=\(downloadState)")
+            
+            // Check again after waiting
+            if await isAIReady() {
+                AppLog.debug("🔥 [INIT AI] MLX AI model now ready after waiting for smart init")
+                return
+            } else {
+                AppLog.debug("🔍 [GUARD] Model still not ready after smart init - may need actual download")
+            }
         }
 
         // If currently downloading, just wait
@@ -358,9 +385,12 @@ class MLXModelService: ObservableObject {
                 // Use the Hugging Face repository format for MLX loading
                 try await SimplifiedMLXRunner.shared.ensureLoaded(modelId: model.huggingFaceRepo)
 
+                AppLog.debug("🔍 [SMART INIT] Setting isModelReady = true")
                 isModelReady = true
+                AppLog.debug("🔍 [SMART INIT] Setting downloadState = .ready")
                 downloadState = .ready
                 downloadProgress = 1.0
+                AppLog.debug("🔍 [SMART INIT] Model state updated: isModelReady=\(isModelReady), downloadState=\(downloadState)")
                 
                 AppLog.essential("✅ AI model ready")
                 notifyReadinessWaiters()

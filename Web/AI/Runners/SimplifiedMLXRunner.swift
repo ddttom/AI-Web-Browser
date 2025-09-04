@@ -15,6 +15,11 @@ final class SimplifiedMLXRunner: ObservableObject {
 
     private var modelContainer: ModelContainer?
     private var currentModelId: String?
+    
+    /// Check if a model is currently loaded
+    var isModelLoaded: Bool {
+        return modelContainer != nil
+    }
 
     // Use ModelRegistry for predefined configurations
     private let defaultModelId = "gemma3_2B_4bit"
