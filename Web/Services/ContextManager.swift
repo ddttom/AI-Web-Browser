@@ -139,8 +139,7 @@ class ContextManager: ObservableObject {
     /// Returns a rich, structured context string for the AI model by combining the current page data
     /// with optional browsing-history context. The page section includes title, URL, word count,
     /// a list of headings & prominent links, and finally the raw (truncated) body text.
-    func getFormattedContext(from context: WebpageContext?, includeHistory: Bool = true) -> String?
-    {
+    func getFormattedContext(from context: WebpageContext?, includeHistory: Bool = true) -> String? {
         var sections: [String] = []
 
         // 1. Current page
@@ -499,8 +498,7 @@ class ContextManager: ObservableObject {
     // MARK: - Private Methods
 
     private func performContentExtraction(from webView: WKWebView, tab: Tab) async throws
-        -> WebpageContext
-    {
+        -> WebpageContext {
         // ENHANCED: Multi-strategy content extraction with comprehensive fallbacks
 
         var bestContext: WebpageContext?
@@ -584,8 +582,7 @@ class ContextManager: ObservableObject {
     }
 
     private func performJavaScriptExtraction(webView: WKWebView, tab: Tab) async throws
-        -> WebpageContext
-    {
+        -> WebpageContext {
         return try await withCheckedThrowingContinuation {
             (cont: CheckedContinuation<WebpageContext, Error>) in
             let script = contentExtractionJavaScript
@@ -627,8 +624,7 @@ class ContextManager: ObservableObject {
     }
 
     private func performLazyLoadExtraction(webView: WKWebView, tab: Tab) async throws
-        -> WebpageContext
-    {
+        -> WebpageContext {
         // First trigger lazy loading
         await triggerLazyLoadScroll(on: webView)
 
@@ -640,8 +636,7 @@ class ContextManager: ObservableObject {
     }
 
     private func performEmergencyExtraction(webView: WKWebView, tab: Tab) async throws
-        -> WebpageContext
-    {
+        -> WebpageContext {
         // Simplified extraction that just gets all visible text
         let emergencyScript = """
             (function() {
@@ -720,11 +715,9 @@ class ContextManager: ObservableObject {
                 }
             }
         }
-    }
 
     private func parseExtractionResult(_ data: [String: Any], from webView: WKWebView, tab: Tab)
-        throws -> WebpageContext
-    {
+        throws -> WebpageContext {
         guard let rawText = data["text"] as? String,
             let title = data["title"] as? String,
             let url = data["url"] as? String
