@@ -717,7 +717,9 @@ class OAuthManager: NSObject, ObservableObject {
 
     private func startCleanupTimer() {
         Timer.scheduledTimer(withTimeInterval: 300, repeats: true) { _ in
-            self.cleanupExpiredRequests()
+            Task { @MainActor in
+                self.cleanupExpiredRequests()
+            }
         }
     }
 

@@ -1472,9 +1472,8 @@ struct WebView: NSViewRepresentable {
                 NSLog("🔐❌ OAuth error details: \(error.localizedDescription)")
                 NSLog("🔐❌ OAuth error code: \(nsError.code)")
                 NSLog("🔐❌ OAuth error domain: \(nsError.domain)")
-                if let userInfo = nsError.userInfo as? [String: Any] {
-                    NSLog("🔐❌ OAuth error userInfo: \(userInfo)")
-                }
+                let userInfo = nsError.userInfo
+                NSLog("🔐❌ OAuth error userInfo: \(userInfo)")
             }
 
             // Classify the error type for appropriate handling
@@ -2289,8 +2288,8 @@ struct WebView: NSViewRepresentable {
 
             // AI RESPONSIVENESS FIX: Run context extraction on background queue
             await withCheckedContinuation { continuation in
-                DispatchQueue.global(qos: .userInitiated).async { [weak self, tab] in
-                    Task { @MainActor in
+                DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+                    Task { @MainActor [tab] in
                         await self?.performBackgroundContextExtraction(webView: webView, tab: tab)
                         continuation.resume()
                     }
