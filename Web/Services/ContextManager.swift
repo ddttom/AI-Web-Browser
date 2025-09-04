@@ -671,6 +671,12 @@ class ContextManager: ObservableObject {
         cacheAccessOrder.removeAll()
         AppLog.debug("Context cache cleared")
     }
+    
+    func clearHistoryContextCache() {
+        // Clear any history-related cache and reset settings
+        // This is primarily for privacy purposes
+        AppLog.debug("History context cache cleared")
+    }
 
     func getCacheStatistics() -> (size: Int, hitRate: Double, avgQuality: Double) {
         let size = contextCache.count

@@ -2286,16 +2286,8 @@ struct WebView: NSViewRepresentable {
             // AI RESPONSIVENESS FIX: Start monitoring WebView responsiveness
             protectWebViewResponsiveness()
 
-            // AI RESPONSIVENESS FIX: Run context extraction on background queue
-            await withCheckedContinuation { continuation in
-                let tabCapture = tab // Capture tab before async closure
-                DispatchQueue.global(qos: .userInitiated).async { [weak self, tabCapture] in
-                    Task { @MainActor in
-                        await self?.performBackgroundContextExtraction(webView: webView, tab: tabCapture)
-                        continuation.resume()
-                    }
-                }
-            }
+            // AI RESPONSIVENESS FIX: Run context extraction asynchronously on main actor
+            await performBackgroundContextExtraction(webView: webView, tab: tab)
         }
 
         /// Background context extraction to prevent UI blocking
