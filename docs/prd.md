@@ -232,6 +232,29 @@ pip install mlx-lm
 - **Automatic Detection**: Converted models are automatically detected by the application
 - **Performance Optimization**: MLX format provides optimal Apple Silicon performance
 
+## Swift 6 Concurrency Compliance
+
+### Latest Updates (v2.7.0)
+
+The application now achieves full Swift 6 compliance with proper concurrency handling and zero compiler warnings.
+
+#### Concurrency Improvements
+- **Main Actor Isolation**: All UI-critical operations properly isolated to main actor
+- **Sendable Compliance**: Non-sendable types correctly handled in concurrent contexts
+- **Async Task Coordination**: Proper async/await patterns throughout AI initialization
+- **Timer Safety**: Background timers properly coordinated with main actor methods
+
+#### Performance Validations
+- **Singleton Pattern Tests**: Comprehensive validation that critical services maintain singleton behavior
+- **Async Coordination Tests**: Verification of proper async/await coordination in AI readiness
+- **Concurrency Safety Tests**: Validation of proper capture lists and actor isolation
+
+#### Technical Debt Resolution
+- **Zero Warnings Policy**: All Swift compiler warnings resolved
+- **Type Safety**: Eliminated unnecessary conditional casts and improved type handling
+- **Capture List Optimization**: Proper structuring of capture lists for concurrent closures
+- **Actor Isolation**: Consistent main actor isolation for UI-touching operations
+
 ## Enhanced Script Management
 
 ### Manual Download Script Enhancements

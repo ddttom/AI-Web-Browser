@@ -42,6 +42,8 @@ https://github.com/user-attachments/assets/85629abc-5527-4345-b1a8-a988e0417c0a
 - **Privacy-First**: AI processing happens locally on device
 - **Smart Initialization**: Intelligent startup that recognizes existing downloads and avoids conflicts
 - **Manual Download Support**: Seamless coordination with manual download processes
+- **Performance Optimized**: Singleton patterns and async/await coordination eliminate redundant initialization and improve responsiveness
+- **Swift 6 Compliant**: Full concurrency support with proper MainActor isolation and Sendable compliance
 - **Smart Assistance**: Integrated AI sidebar for web content analysis with TL;DR and page + history context. (Still rough with bugs, but nice to play and have fun)
 
 ## Requirements
@@ -202,9 +204,16 @@ This script converts GGUF Gemma models to MLX format for Apple Silicon optimizat
 - **MLX Validation Pipeline**: Enhanced coordination between file detection and MLX model loading
 - **Troubleshooting**: See [docs/Troubleshooting.md](docs/Troubleshooting.md) for detailed recovery steps
 
-### Recent Fixes (v2.6.0)
+### Recent Fixes (v2.7.0)
 
-**Enhanced Model Detection & Smart Initialization:**
+**Swift 6 Concurrency & Performance Optimizations:**
+- ✅ **Main Actor Isolation**: Fixed `OAuthManager` timer callback to properly handle main actor isolation with async task coordination
+- ✅ **Sendable Compliance**: Resolved WebView capture warnings by properly structuring capture lists for non-sendable types
+- ✅ **Conditional Cast Optimization**: Eliminated unnecessary type casting in error handling code
+- ✅ **Performance Validation**: Added comprehensive test suite to validate singleton patterns and async coordination
+- ✅ **Zero Warnings Policy**: Achieved full Swift 6 compliance with proper concurrency handling
+
+**Enhanced Model Detection & Smart Initialization (v2.6.0):**
 - ✅ **Model ID Mapping Fixes**: Resolved critical inconsistencies between manual downloads (`models--mlx-community--gemma-2-2b-it-4bit`) and app validation
 - ✅ **Improved File Detection**: Enhanced `findModelDirectory()` with proper Hugging Face cache structure validation (`snapshots/main/` directory)
 - ✅ **Smart Download Coordination**: Enhanced manual download detection with detailed debug logs and reliable process checking using `pgrep`
