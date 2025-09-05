@@ -19,6 +19,7 @@ class AIAssistant: ObservableObject {
     @MainActor @Published var isInitialized: Bool = false
     @MainActor @Published var isProcessing: Bool = false
     @MainActor @Published var initializationStatus: String = "Not initialized"
+    @MainActor @Published var downloadState: MLXModelService.DownloadState = .notStarted
     // Agent timeline state (for Agent mode in the sidebar)
     @MainActor @Published var currentAgentRun: AgentRun?
     @MainActor @Published var lastError: String?
@@ -2545,6 +2546,16 @@ class AIAssistant: ObservableObject {
                 }
                 if !isReady && AppLog.isVerboseEnabled {
                     Task { await self?.updateStatus("MLX AI model not available") }
+                }
+            }
+            .store(in: &cancellables)
+
+        // Bind download state for UI updates
+        mlxModelService.$downloadState
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] state in
+                Task { @MainActor [weak self] in
+                    self?.downloadState = state
                 }
             }
             .store(in: &cancellables)

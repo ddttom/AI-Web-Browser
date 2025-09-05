@@ -9,7 +9,7 @@ struct AISidebar: View {
     @ObservedObject private var providerManager = AIProviderManager.shared
     @StateObject private var aiAssistant: AIAssistant
     @ObservedObject private var usageStore = AIUsageStore.shared
-    @State private var isExpanded: Bool = false
+    @AppStorage("aiSidebarExpanded") private var isExpanded: Bool = true
     @AppStorage("hasLaunchedBefore") private var hasLaunchedBefore: Bool = false
     @State private var chatInput: String = ""
     @FocusState private var isChatInputFocused: Bool
@@ -518,7 +518,7 @@ struct AISidebar: View {
                         }
                     }
 
-                    Text("Downloading and optimizing model...")
+                    Text(downloadProgressMessage())
                         .font(.system(size: 11, weight: .regular))
                         .foregroundColor(.secondary.opacity(0.7))
                 }
@@ -555,6 +555,23 @@ struct AISidebar: View {
         // Use a stable opacity pattern instead of time-based animation
         let baseOpacities = [0.8, 0.6, 0.4, 0.3]
         return baseOpacities[index % baseOpacities.count]
+    }
+    
+    private func downloadProgressMessage() -> String {
+        switch aiAssistant.downloadState {
+        case .downloading:
+            return "Downloading and optimizing model..."
+        case .validating:
+            return "Validating model files..."
+        case .checking:
+            return "Checking for model files..."
+        case .notStarted:
+            return "Preparing to initialize..."
+        case .ready:
+            return "Model ready"
+        case .failed(let error):
+            return "Failed: \(error)"
+        }
     }
 
     @ViewBuilder
