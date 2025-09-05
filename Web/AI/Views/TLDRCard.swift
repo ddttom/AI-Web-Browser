@@ -615,7 +615,7 @@ struct TLDRCard: View {
     VStack {
         TLDRCard(
             tabManager: TabManager(),
-            aiAssistant: AIAssistant()
+            aiAssistant: AIAssistant.shared
         )
         .frame(width: 300)
 

@@ -1128,7 +1128,7 @@ struct WebView: NSViewRepresentable {
 
         private func handleCertificateExceptionGranted(_ notification: Notification) {
             guard
-                let challenge = notification.userInfo?["challenge"] as? URLAuthenticationChallenge,
+                notification.userInfo?["challenge"] as? URLAuthenticationChallenge != nil,
                 let host = notification.userInfo?["host"] as? String,
                 let port = notification.userInfo?["port"] as? Int
             else {
@@ -1142,7 +1142,7 @@ struct WebView: NSViewRepresentable {
                 let pendingChallenge = pendingChallenges.remove(at: index)
 
                 // Retry validation with exception now granted
-                let (disposition, credential) = CertificateManager.shared.validateChallenge(
+                let (_, _) = CertificateManager.shared.validateChallenge(
                     pendingChallenge)
 
                 // This should now succeed because the exception was granted
@@ -1472,9 +1472,8 @@ struct WebView: NSViewRepresentable {
                 NSLog("🔐❌ OAuth error details: \(error.localizedDescription)")
                 NSLog("🔐❌ OAuth error code: \(nsError.code)")
                 NSLog("🔐❌ OAuth error domain: \(nsError.domain)")
-                if let userInfo = nsError.userInfo as? [String: Any] {
-                    NSLog("🔐❌ OAuth error userInfo: \(userInfo)")
-                }
+                let userInfo = nsError.userInfo
+                NSLog("🔐❌ OAuth error userInfo: \(userInfo)")
             }
 
             // Classify the error type for appropriate handling
@@ -2287,15 +2286,8 @@ struct WebView: NSViewRepresentable {
             // AI RESPONSIVENESS FIX: Start monitoring WebView responsiveness
             protectWebViewResponsiveness()
 
-            // AI RESPONSIVENESS FIX: Run context extraction on background queue
-            await withCheckedContinuation { continuation in
-                DispatchQueue.global(qos: .userInitiated).async {
-                    Task {
-                        await self.performBackgroundContextExtraction(webView: webView, tab: tab)
-                        continuation.resume()
-                    }
-                }
-            }
+            // AI RESPONSIVENESS FIX: Run context extraction asynchronously on main actor
+            await performBackgroundContextExtraction(webView: webView, tab: tab)
         }
 
         /// Background context extraction to prevent UI blocking
@@ -2325,10 +2317,12 @@ struct WebView: NSViewRepresentable {
                     }
 
                     // Check if we have good enough content or if JS recommends no retry
-                    if context.isHighQuality || !context.shouldRetry {
+                    // Also break early if we get same quality content repeatedly (avoid infinite cache loops)
+                    if context.isHighQuality || !context.shouldRetry || 
+                       (attemptCount > 2 && context.contentQuality <= 25) {
                         if AppLog.isVerboseEnabled {
                             AppLog.debug(
-                                "Auto-read complete: len=\(context.text.count) title=\(context.title)"
+                                "Auto-read complete: len=\(context.text.count) title=\(context.title) (attempt \(attemptCount))"
                             )
                         }
                         break

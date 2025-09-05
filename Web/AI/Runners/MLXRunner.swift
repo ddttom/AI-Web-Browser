@@ -10,7 +10,7 @@ enum MLXRole: String, CaseIterable {
     case user = "user"
     case assistant = "assistant"
     case system = "system"
-    
+
     // Compatibility with existing LLM.swift Role enum
     static var bot: MLXRole { .assistant }
 }
@@ -20,31 +20,31 @@ enum MLXRole: String, CaseIterable {
 @MainActor
 final class MLXRunner: ObservableObject {
     static let shared = MLXRunner()
-    
+
     // OPTIMIZATION: Persistent model context caching to avoid reloading models between app launches
     @Published var isLoading = false
     @Published var loadProgress: Float = 0.0
-    
+
     private var modelContainer: ModelContainer?
     private var currentModelConfiguration: ModelConfiguration?
     private var loadContinuation: [CheckedContinuation<Void, Error>] = []
-    
+
     // ENHANCED: Persistent model metadata to check if we can reuse cached model
     private let modelCacheDirectory: URL
     private let modelMetadataFile: URL
-    
+
     // OPTIMIZATION: Conversation state management for multi-turn chat
     // Thread-safe with proper synchronization
     private let queue = DispatchQueue(label: "com.web.mlxrunner", qos: .userInitiated)
     private var _conversationHistory: [(role: MLXRole, content: String)] = []
     private var _conversationTokenCount: Int = 0
-    private let maxConversationTokens: Int = 2400 // Enhanced: Increased for larger context windows
-    
+    private let maxConversationTokens: Int = 2400  // Enhanced: Increased for larger context windows
+
     private var conversationHistory: [(role: MLXRole, content: String)] {
         get { queue.sync { _conversationHistory } }
         set { queue.sync { _conversationHistory = newValue } }
     }
-    
+
     private var conversationTokenCount: Int {
         get { queue.sync { _conversationTokenCount } }
         set { queue.sync { _conversationTokenCount = newValue } }
@@ -57,7 +57,7 @@ final class MLXRunner: ObservableObject {
         ),
         "gemma-3-1b": ModelConfiguration(
             id: "mlx-community/gemma-3-1b-it-4bit"
-        )
+        ),
     ]
 
     private init() {
@@ -65,13 +65,14 @@ final class MLXRunner: ObservableObject {
         let cacheDir = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first!
         modelCacheDirectory = cacheDir.appendingPathComponent("MLXCache", isDirectory: true)
         modelMetadataFile = modelCacheDirectory.appendingPathComponent("mlx_model_metadata.json")
-        
+
         // Create cache directory if needed
-        try? FileManager.default.createDirectory(at: modelCacheDirectory, withIntermediateDirectories: true)
-        
+        try? FileManager.default.createDirectory(
+            at: modelCacheDirectory, withIntermediateDirectories: true)
+
         // Configure MLX GPU cache for optimal performance
-        MLX.GPU.set(cacheLimit: 20 * 1024 * 1024) // 20MB cache limit
-        
+        MLX.GPU.set(cacheLimit: 20 * 1024 * 1024)  // 20MB cache limit
+
         NSLog("📁 MLX cache directory: \(modelCacheDirectory.path)")
     }
 
@@ -79,7 +80,7 @@ final class MLXRunner: ObservableObject {
     func ensureLoaded(modelKey: String = "gemma-3-2b") async throws {
         // Try to create model configuration from path or fallback to Hugging Face
         let modelConfig: ModelConfiguration
-        
+
         if modelKey.hasPrefix("/") {
             // Direct path to local model
             modelConfig = ModelConfiguration(id: modelKey)
@@ -89,23 +90,24 @@ final class MLXRunner: ObservableObject {
         } else {
             throw MLXError.invalidModel("Model configuration not found: \(modelKey)")
         }
-        
+
         // If already loaded with same model, return immediately
         if modelContainer != nil && currentModelConfiguration?.id == modelConfig.id {
             NSLog("♻️ MLX model already loaded in memory, reusing existing instance...")
             return
         }
-        
+
         if isLoading {
-            try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
+            try await withCheckedThrowingContinuation {
+                (continuation: CheckedContinuation<Void, Error>) in
                 loadContinuation.append(continuation)
             }
             return
         }
-        
+
         isLoading = true
         loadProgress = 0.0
-        defer { 
+        defer {
             isLoading = false
             for cont in loadContinuation { cont.resume() }
             loadContinuation.removeAll()
@@ -113,23 +115,26 @@ final class MLXRunner: ObservableObject {
 
         // Check if we can reuse a previously loaded model
         if let cachedMetadata = loadModelMetadata(),
-           cachedMetadata.modelId == String(describing: modelConfig.id),
-           cachedMetadata.isValid() {
+            cachedMetadata.modelId == String(describing: modelConfig.id),
+            cachedMetadata.isValid()
+        {
             NSLog("💾 Found valid cached MLX model metadata, attempting quick reload...")
-            
+
             // Try to reinitialize the model quickly
             do {
                 loadProgress = 0.5
-                let context = try await LLMModelFactory.shared.loadContainer(configuration: modelConfig) { progress in
+                let context = try await LLMModelFactory.shared.loadContainer(
+                    configuration: modelConfig
+                ) { progress in
                     Task { @MainActor in
                         self.loadProgress = Float(progress.fractionCompleted)
                     }
                 }
-                
+
                 self.modelContainer = context
                 self.currentModelConfiguration = modelConfig
                 loadProgress = 1.0
-                
+
                 NSLog("🚀 MLX model reloaded from cache: \(modelConfig.id)")
                 return
             } catch {
@@ -138,22 +143,23 @@ final class MLXRunner: ObservableObject {
         }
 
         NSLog("🚀 Loading MLX model from Hugging Face: \(modelConfig.id)")
-        
+
         do {
             // Load model with progress tracking
-            let context = try await LLMModelFactory.shared.loadContainer(configuration: modelConfig) { progress in
+            let context = try await LLMModelFactory.shared.loadContainer(configuration: modelConfig)
+            { progress in
                 Task { @MainActor in
                     self.loadProgress = Float(progress.fractionCompleted)
                 }
             }
-            
+
             self.modelContainer = context
             self.currentModelConfiguration = modelConfig
             self.loadProgress = 1.0
-            
+
             // Save model metadata for next app launch
             saveModelMetadata(for: modelConfig)
-            
+
             NSLog("✅ MLX model loaded successfully: \(modelConfig.id)")
         } catch {
             NSLog("❌ Failed to load MLX model: \(error)")
@@ -162,42 +168,45 @@ final class MLXRunner: ObservableObject {
     }
 
     /// Generate a complete response with raw prompt (bypasses conversation preprocessing)
-    nonisolated func generateWithPrompt(prompt: String, modelKey: String = "gemma-3-2b") async throws -> String {
+    nonisolated func generateWithPrompt(prompt: String, modelKey: String = "gemma-3-2b")
+        async throws -> String
+    {
         try await ensureLoaded(modelKey: modelKey)
-        
-        guard await modelContainer != nil else { 
+
+        guard await modelContainer != nil else {
             throw MLXError.modelNotLoaded("MLX model not properly initialized")
         }
-        
+
         NSLog("🤖 Generating response with RAW prompt using MLX...")
-        
+
         return try await withThrowingTaskGroup(of: String?.self) { group in
             // Main generation task using raw prompt
             group.addTask {
                 return await self.performGeneration(prompt: prompt)
             }
-            
+
             // Timeout task (30 seconds for non-streaming)
             group.addTask {
-                try await Task.sleep(nanoseconds: 30_000_000_000) // 30 seconds
+                try await Task.sleep(nanoseconds: 30_000_000_000)  // 30 seconds
                 return nil
             }
-            
+
             // Return the first completed result
             guard let result = try await group.next() else {
                 throw MLXError.generationFailed("No result from generation task")
             }
-            
+
             group.cancelAll()
-            
-            return result ?? "Response generation timed out after 30 seconds. Please try again or use streaming mode."
+
+            return result
+                ?? "Response generation timed out after 30 seconds. Please try again or use streaming mode."
         }
     }
-    
+
     /// Internal method to perform MLX generation
     private func performGeneration(prompt: String) async -> String? {
-        guard let container = await modelContainer else { return nil }
-        
+        guard let container = modelContainer else { return nil }
+
         do {
             let result = try await container.perform { modelContext in
                 let input = try await modelContext.processor.prepare(input: .init(prompt: prompt))
@@ -206,9 +215,9 @@ final class MLXRunner: ObservableObject {
                     temperature: 0.7,
                     topP: 0.9
                 )
-                
+
                 var fullResponse = ""
-                
+
                 let _ = try MLXLMCommon.generate(
                     input: input,
                     parameters: parameters,
@@ -219,10 +228,10 @@ final class MLXRunner: ObservableObject {
                     fullResponse += text
                     return .more
                 }
-                
+
                 return fullResponse
             }
-            
+
             NSLog("✅ MLX RAW prompt response generated: \(result.count) characters")
             return result
         } catch {
@@ -232,78 +241,87 @@ final class MLXRunner: ObservableObject {
     }
 
     /// Generate a complete response for the given prompt with conversation history
-    nonisolated func generate(prompt: String, maxTokens: Int = 512, temperature: Float = 0.7, modelKey: String = "gemma-3-2b") async throws -> String {
+    nonisolated func generate(
+        prompt: String, maxTokens: Int = 512, temperature: Float = 0.7,
+        modelKey: String = "gemma-3-2b"
+    ) async throws -> String {
         try await ensureLoaded(modelKey: modelKey)
-        
-        guard await modelContainer != nil else { 
+
+        guard await modelContainer != nil else {
             throw MLXError.modelNotLoaded("MLX model not properly initialized")
         }
-        
+
         NSLog("🤖 Generating response with MLX (with conversation context)...")
-        
+
         // Build conversation context
         let conversationPrompt = await buildConversationPrompt(userPrompt: prompt)
-        
+
         return try await withThrowingTaskGroup(of: String?.self) { group in
             // Main generation task
             group.addTask {
                 return await self.performGeneration(prompt: conversationPrompt)
             }
-            
+
             // Timeout task (30 seconds for non-streaming)
             group.addTask {
-                try await Task.sleep(nanoseconds: 30_000_000_000) // 30 seconds
+                try await Task.sleep(nanoseconds: 30_000_000_000)  // 30 seconds
                 return nil
             }
-            
+
             // Return the first completed result
             guard let result = try await group.next() else {
                 throw MLXError.generationFailed("No result from generation task")
             }
-            
+
             group.cancelAll()
-            
-            let response = result ?? "Response generation timed out after 30 seconds. Please try again or use streaming mode."
-            
+
+            let response =
+                result
+                ?? "Response generation timed out after 30 seconds. Please try again or use streaming mode."
+
             // Update conversation history
             await addToConversationHistory(userPrompt: prompt, response: response)
-            
+
             NSLog("✅ MLX response generated: \(response.count) characters")
             return response
         }
     }
 
     /// Generate a streaming response with raw prompt
-    nonisolated func generateStreamWithPrompt(prompt: String, modelKey: String = "gemma-3-2b") -> AsyncThrowingStream<String, Error> {
+    nonisolated func generateStreamWithPrompt(prompt: String, modelKey: String = "gemma-3-2b")
+        -> AsyncThrowingStream<String, Error>
+    {
         AsyncThrowingStream { continuation in
             Task {
                 do {
                     try await ensureLoaded(modelKey: modelKey)
-                    
+
                     guard await modelContainer != nil else {
-                        continuation.finish(throwing: MLXError.modelNotLoaded("MLX model not properly initialized"))
+                        continuation.finish(
+                            throwing: MLXError.modelNotLoaded("MLX model not properly initialized"))
                         return
                     }
-                    
+
                     NSLog("🌊 Starting MLX streaming with RAW prompt...")
-                    
+
                     await performStreamingGeneration(
                         prompt: prompt,
                         continuation: continuation
                     )
-                    
+
                 } catch {
                     NSLog("❌ MLX RAW prompt streaming failed: \(error)")
-                    
+
                     let errorMessage: String
                     if error.localizedDescription.contains("memory") {
-                        errorMessage = "AI response failed due to memory constraints. Try a shorter query or restart the app."
+                        errorMessage =
+                            "AI response failed due to memory constraints. Try a shorter query or restart the app."
                     } else if error.localizedDescription.contains("timeout") {
                         errorMessage = "AI response timed out. Please try a shorter query."
                     } else {
                         errorMessage = "AI response failed: \(error.localizedDescription)"
                     }
-                    
+
                     continuation.finish(throwing: MLXError.streamingFailed(errorMessage))
                 }
             }
@@ -311,27 +329,31 @@ final class MLXRunner: ObservableObject {
     }
 
     /// Generate a streaming response with conversation context
-    nonisolated func generateStream(prompt: String, maxTokens: Int = 512, temperature: Float = 0.7, modelKey: String = "gemma-3-2b") -> AsyncThrowingStream<String, Error> {
+    nonisolated func generateStream(
+        prompt: String, maxTokens: Int = 512, temperature: Float = 0.7,
+        modelKey: String = "gemma-3-2b"
+    ) -> AsyncThrowingStream<String, Error> {
         AsyncThrowingStream { continuation in
             Task {
                 do {
                     try await ensureLoaded(modelKey: modelKey)
-                    
+
                     guard await modelContainer != nil else {
-                        continuation.finish(throwing: MLXError.modelNotLoaded("MLX model not properly initialized"))
+                        continuation.finish(
+                            throwing: MLXError.modelNotLoaded("MLX model not properly initialized"))
                         return
                     }
-                    
+
                     NSLog("🌊 Starting MLX streaming response...")
-                    
+
                     // Build conversation context
                     let conversationPrompt = await buildConversationPrompt(userPrompt: prompt)
-                    
+
                     await performStreamingGeneration(
                         prompt: conversationPrompt,
                         continuation: continuation
                     )
-                    
+
                 } catch {
                     NSLog("❌ MLX streaming failed: \(error)")
                     continuation.finish(throwing: error)
@@ -339,7 +361,7 @@ final class MLXRunner: ObservableObject {
             }
         }
     }
-    
+
     /// Internal method to perform streaming generation with MLX
     private func performStreamingGeneration(
         prompt: String,
@@ -349,7 +371,7 @@ final class MLXRunner: ObservableObject {
             continuation.finish(throwing: MLXError.modelNotLoaded("Model context not available"))
             return
         }
-        
+
         do {
             try await container.perform { modelContext in
                 let input = try await modelContext.processor.prepare(input: .init(prompt: prompt))
@@ -358,10 +380,10 @@ final class MLXRunner: ObservableObject {
                     temperature: 0.7,
                     topP: 0.9
                 )
-                
+
                 var detokenizer = NaiveStreamingDetokenizer(tokenizer: modelContext.tokenizer)
                 var fullResponse = ""
-                
+
                 let _ = try MLXLMCommon.generate(
                     input: input,
                     parameters: parameters,
@@ -372,33 +394,36 @@ final class MLXRunner: ObservableObject {
                         if let text = detokenizer.next() {
                             fullResponse += text
                             continuation.yield(text)
-                            NSLog("🌊 MLX token streamed: \(text.prefix(30))... (\(text.count) chars)")
+                            NSLog(
+                                "🌊 MLX token streamed: \(text.prefix(30))... (\(text.count) chars)")
                         }
                     }
                     return .more
                 }
-                
+
                 // Update conversation history after streaming completes
                 Task {
                     await self.addToConversationHistory(userPrompt: prompt, response: fullResponse)
                 }
             }
-            
+
             continuation.finish()
             NSLog("✅ MLX streaming response completed")
-            
+
         } catch {
             NSLog("❌ MLX streaming generation failed: \(error)")
-            continuation.finish(throwing: MLXError.streamingFailed("Streaming generation failed: \(error.localizedDescription)"))
+            continuation.finish(
+                throwing: MLXError.streamingFailed(
+                    "Streaming generation failed: \(error.localizedDescription)"))
         }
     }
-    
+
     /// Build conversation prompt with history for better context
     private func buildConversationPrompt(userPrompt: String) async -> String {
         let history = conversationHistory
-        
+
         var conversationContext = ""
-        
+
         // Add conversation history
         for entry in history {
             switch entry.role {
@@ -408,34 +433,34 @@ final class MLXRunner: ObservableObject {
                 conversationContext += "Assistant: \(entry.content)\n"
             }
         }
-        
+
         // Add current prompt
         conversationContext += "User: \(userPrompt)\nAssistant:"
-        
+
         return conversationContext
     }
-    
+
     /// Helper method to safely update conversation history
     private func addToConversationHistory(userPrompt: String, response: String) async {
         let userChat: (role: MLXRole, content: String) = (.user, userPrompt)
         let assistantChat: (role: MLXRole, content: String) = (.assistant, response)
-        
+
         // Enhanced: More accurate token estimation for larger contexts
         let estimatedTokens = Int(Double(userPrompt.count + response.count) / 3.5)
-        
+
         queue.sync {
             if _conversationTokenCount + estimatedTokens > maxConversationTokens {
                 NSLog("🔄 Resetting conversation context due to token limit")
                 _conversationHistory.removeAll()
                 _conversationTokenCount = 0
             }
-            
+
             _conversationHistory.append(userChat)
             _conversationHistory.append(assistantChat)
             _conversationTokenCount += estimatedTokens
         }
     }
-    
+
     /// Clear loaded model to free memory (but keep metadata cache for next launch)
     func clearModel() async {
         self.modelContainer = nil
@@ -444,16 +469,16 @@ final class MLXRunner: ObservableObject {
         self.conversationTokenCount = 0
         NSLog("🗑️ MLX model cleared from memory (metadata cache preserved)")
     }
-    
+
     /// Reset conversation history (useful for new chat sessions)
     func resetConversation() async {
         self.conversationHistory.removeAll()
         self.conversationTokenCount = 0
         NSLog("🔄 Conversation history reset")
     }
-    
+
     // MARK: - Persistent Model Caching
-    
+
     /// Save model metadata to persist between app launches
     private func saveModelMetadata(for modelConfig: ModelConfiguration) {
         do {
@@ -461,24 +486,24 @@ final class MLXRunner: ObservableObject {
                 modelId: String(describing: modelConfig.id),
                 cacheTimestamp: Date()
             )
-            
+
             let encoder = JSONEncoder()
             encoder.dateEncodingStrategy = .iso8601
             let data = try encoder.encode(metadata)
-            
+
             try data.write(to: modelMetadataFile)
             NSLog("💾 MLX model metadata saved: \(modelConfig.id)")
         } catch {
             NSLog("⚠️ Failed to save MLX model metadata: \(error)")
         }
     }
-    
+
     /// Load model metadata from previous app launches
     private func loadModelMetadata() -> MLXModelMetadata? {
         guard FileManager.default.fileExists(atPath: modelMetadataFile.path) else {
             return nil
         }
-        
+
         do {
             let data = try Data(contentsOf: modelMetadataFile)
             let decoder = JSONDecoder()
@@ -499,13 +524,13 @@ final class MLXRunner: ObservableObject {
 struct MLXModelMetadata: Codable {
     let modelId: String
     let cacheTimestamp: Date
-    
+
     /// Check if this cached metadata is still valid
     func isValid() -> Bool {
         // Cache is valid for 7 days
         let cacheAge = Date().timeIntervalSince(cacheTimestamp)
-        let cacheValid = cacheAge < (7 * 24 * 60 * 60) // 7 days in seconds
-        
+        let cacheValid = cacheAge < (7 * 24 * 60 * 60)  // 7 days in seconds
+
         return cacheValid
     }
 }
@@ -518,7 +543,7 @@ enum MLXError: LocalizedError {
     case loadingFailed(String)
     case generationFailed(String)
     case streamingFailed(String)
-    
+
     var errorDescription: String? {
         switch self {
         case .invalidModel(let message):

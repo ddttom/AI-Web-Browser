@@ -7,7 +7,10 @@ struct WebApp: App {
     let keyboardShortcutHandler = KeyboardShortcutHandler.shared
 
     init() {
+        // CRITICAL: Configure Metal logging before any other initialization
+        MetalDiagnostics.configureMetalLogging()
         configureLogging()
+
         // Initialize keyboard shortcut handler
         _ = keyboardShortcutHandler
         // Initialize application state observer to manage background resource policies
@@ -16,6 +19,10 @@ struct WebApp: App {
         _ = BackgroundResourceManager.shared
         // SECURITY: Initialize runtime security monitor for JIT entitlement risk mitigation
         _ = RuntimeSecurityMonitor.shared
+
+        // Perform Metal system diagnostics
+        MetalDiagnostics.shared.performStartupDiagnostics()
+
         // Initialize update service and check for updates in background
         setupUpdateChecker()
     }
@@ -41,8 +48,18 @@ struct WebApp: App {
         setenv("WEBKIT_SUPPRESS_PROCESS_LOGS", "1", 1)
         setenv("OS_ACTIVITY_MODE", "disable", 1)
 
+        // Additional Metal and graphics framework noise reduction
+        setenv("CA_DISABLE_VERBOSE_LOGGING", "1", 1)
+        setenv("METAL_DEVICE_WRAPPER_TYPE", "1", 1)
+
+        // Suppress specific framework warnings that don't affect functionality
+        #if !DEBUG
+            setenv("SUPPRESS_METAL_WARNINGS", "1", 1)
+            setenv("ICONRENDERING_QUIET", "1", 1)
+        #endif
+
         // Only log startup message in verbose mode
-        AppLog.debug("Web browser started with reduced WebKit logging")
+        AppLog.debug("Web browser started with reduced framework logging")
     }
 
     private func setupUpdateChecker() {

@@ -17,6 +17,7 @@ import Security
 /// - Secure callback URL validation and handling
 /// - Token exchange with comprehensive validation
 /// - Integration with TokenManager for secure storage
+@MainActor
 class OAuthManager: NSObject, ObservableObject {
     static let shared = OAuthManager()
 
@@ -64,7 +65,7 @@ class OAuthManager: NSObject, ObservableObject {
             case clientCredentials = "client_credentials"
         }
 
-        static let exampleProviders: [OAuthProvider] = [
+        nonisolated static let exampleProviders: [OAuthProvider] = [
             OAuthProvider(
                 id: UUID(),
                 name: "Google",
@@ -716,7 +717,9 @@ class OAuthManager: NSObject, ObservableObject {
 
     private func startCleanupTimer() {
         Timer.scheduledTimer(withTimeInterval: 300, repeats: true) { _ in
-            self.cleanupExpiredRequests()
+            Task { @MainActor in
+                self.cleanupExpiredRequests()
+            }
         }
     }
 

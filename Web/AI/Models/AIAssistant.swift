@@ -6,12 +6,20 @@ import WebKit
 /// Integrates MLX framework with context management and conversation handling
 @MainActor
 class AIAssistant: ObservableObject {
+    
+    // MARK: - Singleton
+    static let shared: AIAssistant = {
+        AppLog.debug("🚀 [SINGLETON] AIAssistant initializing")
+        return AIAssistant()
+    }()
+    private static var hasInitialized = false
 
     // MARK: - Published Properties (Main Actor for UI Updates)
 
     @MainActor @Published var isInitialized: Bool = false
     @MainActor @Published var isProcessing: Bool = false
     @MainActor @Published var initializationStatus: String = "Not initialized"
+    @MainActor @Published var downloadState: MLXModelService.DownloadState = .notStarted
     // Agent timeline state (for Agent mode in the sidebar)
     @MainActor @Published var currentAgentRun: AgentRun?
     @MainActor @Published var lastError: String?
@@ -39,7 +47,12 @@ class AIAssistant: ObservableObject {
 
     // MARK: - Initialization
 
-    init(tabManager: TabManager? = nil) {
+    private init(tabManager: TabManager? = nil) {
+        guard !AIAssistant.hasInitialized else {
+            fatalError("AIAssistant is a singleton - use AIAssistant.shared")
+        }
+        AIAssistant.hasInitialized = true
+        
         // Initialize dependencies
         self.mlxWrapper = MLXWrapper()
         self.privacyManager = PrivacyManager()
@@ -52,7 +65,7 @@ class AIAssistant: ObservableObject {
         self.aiConfiguration = HardwareDetector.getOptimalAIConfiguration()
 
         // Initialize MLX service and Gemma service after super.init equivalent
-        self.mlxModelService = MLXModelService()
+        self.mlxModelService = MLXModelService.shared
         self.gemmaService = GemmaService(
             configuration: aiConfiguration,
             mlxWrapper: mlxWrapper,
@@ -61,7 +74,7 @@ class AIAssistant: ObservableObject {
         )
 
         // Set up bindings - will be called async in initialize
-        AppLog.debug("AI Assistant init: framework=\(aiConfiguration.framework)")
+        AppLog.debug("🚀 [SINGLETON] AIAssistant ready: framework=\(aiConfiguration.framework)")
     }
 
     // MARK: - Public Interface
@@ -78,6 +91,13 @@ class AIAssistant: ObservableObject {
 
     /// FIXED: Initialize the AI system with safe parallel tasks (race condition fixed)
     func initialize() async {
+        // Guard against duplicate initialization attempts
+        let currentInitState = await MainActor.run { self.isInitialized }
+        if currentInitState {
+            AppLog.debug("🛡️ [AI-ASSISTANT] Already initialized - skipping duplicate initialization")
+            return
+        }
+        
         await updateStatus("Initializing AI system...")
 
         do {
@@ -92,25 +112,22 @@ class AIAssistant: ObservableObject {
                 try validateHardware()
 
                 await updateStatus("Checking MLX AI model availability...")
-                if !(await mlxModelService.isAIReady()) {
-                    await updateStatus("MLX AI model not found - preparing download...")
-                    let downloadInfo = await mlxModelService.getDownloadInfo()
-                    AppLog.debug("MLX model needs download: \(downloadInfo.formattedSize)")
-                    try await mlxModelService.initializeAI()
-                }
+                // Just call initializeAI() - it will handle all the checks internally and return early if ready
+                try await mlxModelService.initializeAI()
 
                 await updateStatus("Loading MLX AI model...")
-                while !(await mlxModelService.isAIReady()) {
+                
+                // Wait for AI readiness with async/await instead of polling
+                AppLog.debug("🔄 [AI-ASSISTANT] Waiting for AI readiness...")
+                let isReady = await mlxModelService.waitForAIReadiness()
+                
+                if isReady {
+                    AppLog.debug("✅ [AI-ASSISTANT] AI readiness wait completed successfully")
+                } else {
+                    AppLog.error("❌ [AI-ASSISTANT] AI readiness wait failed")
                     if case .failed(let error) = mlxModelService.downloadState {
                         throw MLXModelError.downloadFailed("MLX model download failed: \(error)")
                     }
-                    let progress = mlxModelService.downloadProgress
-                    if progress > 0 {
-                        await updateStatus("Loading MLX AI model... (\(Int(progress * 100)))")
-                    } else {
-                        await updateStatus("Loading MLX AI model...")
-                    }
-                    try await Task.sleep(nanoseconds: 500_000_000)
                 }
 
                 // Initialize frameworks and services required for local
@@ -427,7 +444,7 @@ class AIAssistant: ObservableObject {
                     return
                 }
                 let agent = PageAgent(webView: webView)
-                var adjusted = Self.postProcessPlanForSites(fallback)
+                let adjusted = Self.postProcessPlanForSites(fallback)
 
                 // Passive observe-act enhancement: if the query implies a choice (pick/best/funniest),
                 // replace a generic click with an interactive selection driven by element summaries.
@@ -532,7 +549,7 @@ class AIAssistant: ObservableObject {
             NSLog("❌ Agent: Planning failed with error: \(error.localizedDescription)")
             await MainActor.run {
                 // Surface a visible failure row instead of an empty timeline
-                var failureStep = PageAction(type: .askUser)
+                let failureStep = PageAction(type: .askUser)
                 let failure = AgentStep(
                     id: failureStep.id, action: failureStep, state: .failure,
                     message: "planning failed")
@@ -552,7 +569,7 @@ class AIAssistant: ObservableObject {
         let (maybeWebView, host) = await MainActor.run { () -> (WKWebView?, String?) in
             (self.tabManager?.activeTab?.webView, self.tabManager?.activeTab?.url?.host)
         }
-        guard let webView = maybeWebView else { return }
+        guard maybeWebView != nil else { return }
 
         // Initialize timeline
         await MainActor.run {
@@ -1504,7 +1521,7 @@ class AIAssistant: ObservableObject {
         if q.hasPrefix("search ") || q.hasPrefix("search for ") || q.hasPrefix("look up ")
             || q.hasPrefix("find ")
         {
-            var term =
+            let term =
                 q
                 .replacingOccurrences(of: "search for ", with: "")
                 .replacingOccurrences(of: "search ", with: "")
@@ -2442,7 +2459,7 @@ class AIAssistant: ObservableObject {
     /// Clear history context for privacy
     @MainActor
     func clearHistoryContext() {
-        contextManager.clearHistoryContextCache()
+        contextManager.clearContextCache()
         AppLog.debug("History context cleared")
     }
 
@@ -2518,13 +2535,27 @@ class AIAssistant: ObservableObject {
         mlxModelService.$isModelReady
             .receive(on: DispatchQueue.main)
             .sink { [weak self] isReady in
+                // Only reset initialization state if model becomes permanently unavailable
+                // Don't reset during normal startup/loading process
                 Task { @MainActor [weak self] in
-                    if !isReady && self?.isInitialized == true {
+                    if !isReady && self?.isInitialized == true,
+                       case .failed(_) = self?.mlxModelService.downloadState {
+                        AppLog.debug("🔄 [AI-ASSISTANT] Resetting initialization due to model failure")
                         self?.isInitialized = false
                     }
                 }
-                if !isReady {
+                if !isReady && AppLog.isVerboseEnabled {
                     Task { await self?.updateStatus("MLX AI model not available") }
+                }
+            }
+            .store(in: &cancellables)
+
+        // Bind download state for UI updates
+        mlxModelService.$downloadState
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] state in
+                Task { @MainActor [weak self] in
+                    self?.downloadState = state
                 }
             }
             .store(in: &cancellables)

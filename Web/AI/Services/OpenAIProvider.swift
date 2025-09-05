@@ -134,7 +134,7 @@ class OpenAIProvider: ExternalAPIProvider {
     // MARK: - Configuration Validation
 
     override func validateConfiguration() async throws {
-        guard let apiKey = apiKey else {
+        guard apiKey != nil else {
             throw AIProviderError.missingAPIKey(displayName)
         }
 
@@ -433,7 +433,7 @@ class OpenAIProvider: ExternalAPIProvider {
         // Circuit breaker
         try preflightCircuitBreaker()
 
-        guard let apiKey = apiKey else {
+        guard apiKey != nil else {
             throw AIProviderError.missingAPIKey(displayName)
         }
 
@@ -443,7 +443,7 @@ class OpenAIProvider: ExternalAPIProvider {
 
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
-        request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
+        request.setValue("Bearer \(apiKey ?? "")", forHTTPHeaderField: "Authorization")
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.setValue(userAgent, forHTTPHeaderField: "User-Agent")
 
@@ -565,7 +565,7 @@ class OpenAIProvider: ExternalAPIProvider {
         // Circuit breaker
         try preflightCircuitBreaker()
 
-        guard let apiKey = apiKey else {
+        guard apiKey != nil else {
             throw AIProviderError.missingAPIKey(displayName)
         }
 
@@ -575,7 +575,7 @@ class OpenAIProvider: ExternalAPIProvider {
 
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
-        request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
+        request.setValue("Bearer \(apiKey ?? "")", forHTTPHeaderField: "Authorization")
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.setValue(userAgent, forHTTPHeaderField: "User-Agent")
 

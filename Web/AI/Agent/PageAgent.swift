@@ -21,7 +21,7 @@ public final class PageAgent: NSObject {
 
     public func navigate(_ url: URL, newTab: Bool) async {
         guard !newTab, let webView else { return }
-        await MainActor.run { webView.load(URLRequest(url: url)) }
+        _ = await MainActor.run { webView.load(URLRequest(url: url)) }
     }
 
     public func requestElements(matching locator: LocatorInput) async -> [ElementSummary] {

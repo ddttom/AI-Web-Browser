@@ -83,7 +83,7 @@ struct AIPrivacySettings: View {
                     .fontWeight(.medium)
                 
                 Button("Clear History Context Cache") {
-                    contextManager.clearHistoryContextCache()
+                    contextManager.clearContextCache()
                 }
                 .buttonStyle(SecondaryButtonStyle())
                 

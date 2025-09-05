@@ -1,61 +1,59 @@
 import SwiftUI
 import os.log
 
-/**
- * DownloadSecuritySettingsView
- * 
- * Comprehensive download security configuration interface.
- * 
- * Key Features:
- * - File security validator policy configuration
- * - Malware scanning settings and preferences
- * - Quarantine management and controls
- * - Security monitoring and reporting dashboard
- * - Real-time security metrics and statistics
- * - Advanced threat protection configuration
- * 
- * Security Design:
- * - Clear security policy explanations
- * - Progressive disclosure of advanced settings
- * - Visual security status indicators
- * - Comprehensive help and documentation
- * - Integration with all security services
- */
+/// DownloadSecuritySettingsView
+///
+/// Comprehensive download security configuration interface.
+///
+/// Key Features:
+/// - File security validator policy configuration
+/// - Malware scanning settings and preferences
+/// - Quarantine management and controls
+/// - Security monitoring and reporting dashboard
+/// - Real-time security metrics and statistics
+/// - Advanced threat protection configuration
+///
+/// Security Design:
+/// - Clear security policy explanations
+/// - Progressive disclosure of advanced settings
+/// - Visual security status indicators
+/// - Comprehensive help and documentation
+/// - Integration with all security services
 struct DownloadSecuritySettingsView: View {
     @StateObject private var downloadManager = DownloadManager.shared
     @StateObject private var fileSecurityValidator = FileSecurityValidator.shared
     @StateObject private var malwareScanner = MalwareScanner.shared
     @StateObject private var quarantineManager = QuarantineManager.shared
     @StateObject private var securityMonitor = SecurityMonitor.shared
-    
+
     @State private var showAdvancedSettings = false
     @State private var showSecurityReport = false
     @State private var securityReport: DownloadSecurityReport?
     @State private var securityMetrics: SecurityMonitor.SecurityMetrics?
-    
+
     private let logger = Logger(subsystem: "com.example.Web", category: "DownloadSecuritySettings")
-    
+
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 24) {
                 // Header with security status
                 headerSection
-                
+
                 // Main security settings
                 mainSecuritySection
-                
+
                 // File security policies
                 fileSecuritySection
-                
+
                 // Malware scanning configuration
                 malwareScanningSection
-                
+
                 // Quarantine management
                 quarantineSection
-                
+
                 // Advanced settings (collapsible)
                 advancedSettingsSection
-                
+
                 // Security monitoring and reporting
                 securityReportingSection
             }
@@ -68,36 +66,36 @@ struct DownloadSecuritySettingsView: View {
             loadSecurityData()
         }
     }
-    
+
     // MARK: - Header Section
-    
+
     private var headerSection: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
                 Image(systemName: "shield.checkered")
                     .font(.title2)
                     .foregroundColor(.blue)
-                
+
                 VStack(alignment: .leading, spacing: 4) {
                     Text("Download Security")
                         .font(.title2)
                         .fontWeight(.semibold)
-                    
+
                     Text("Protect your system from malicious downloads")
                         .font(.subheadline)
                         .foregroundColor(.secondary)
                 }
-                
+
                 Spacer()
-                
+
                 // Security status indicator
                 securityStatusIndicator
             }
-            
+
             Divider()
         }
     }
-    
+
     private var securityStatusIndicator: some View {
         VStack(alignment: .trailing, spacing: 4) {
             HStack(spacing: 6) {
@@ -108,7 +106,7 @@ struct DownloadSecuritySettingsView: View {
                     .font(.caption)
                     .fontWeight(.medium)
             }
-            
+
             if let report = securityReport {
                 Text("Score: \(report.formattedSecurityScore)")
                     .font(.caption2)
@@ -116,12 +114,11 @@ struct DownloadSecuritySettingsView: View {
             }
         }
     }
-    
+
     private var overallSecurityStatus: (color: Color, title: String) {
-        if downloadManager.securityScanEnabled && 
-           malwareScanner.isEnabled && 
-           quarantineManager.isEnabled &&
-           fileSecurityValidator.securityPolicy != .permissive {
+        if downloadManager.securityScanEnabled && malwareScanner.isEnabled
+            && quarantineManager.isEnabled && fileSecurityValidator.securityPolicy != .permissive
+        {
             return (.green, "Secure")
         } else if downloadManager.securityScanEnabled || malwareScanner.isEnabled {
             return (.orange, "Basic")
@@ -129,15 +126,15 @@ struct DownloadSecuritySettingsView: View {
             return (.red, "Disabled")
         }
     }
-    
+
     // MARK: - Main Security Section
-    
+
     private var mainSecuritySection: some View {
         VStack(alignment: .leading, spacing: 16) {
             Text("Core Protection")
                 .font(.headline)
                 .fontWeight(.semibold)
-            
+
             VStack(alignment: .leading, spacing: 12) {
                 // Enable security scanning
                 Toggle(isOn: $downloadManager.securityScanEnabled) {
@@ -151,10 +148,13 @@ struct DownloadSecuritySettingsView: View {
                     }
                 }
                 .onChange(of: downloadManager.securityScanEnabled) {
-                    downloadManager.updateSecuritySettings(scanEnabled: downloadManager.securityScanEnabled)
-                    logger.info("Security scanning \(downloadManager.securityScanEnabled ? "enabled" : "disabled")")
+                    downloadManager.updateSecuritySettings(
+                        scanEnabled: downloadManager.securityScanEnabled)
+                    logger.info(
+                        "Security scanning \(downloadManager.securityScanEnabled ? "enabled" : "disabled")"
+                    )
                 }
-                
+
                 // Show security warnings
                 Toggle(isOn: $downloadManager.showSecurityWarnings) {
                     VStack(alignment: .leading, spacing: 2) {
@@ -167,9 +167,10 @@ struct DownloadSecuritySettingsView: View {
                     }
                 }
                 .onChange(of: downloadManager.showSecurityWarnings) {
-                    downloadManager.updateSecuritySettings(showWarnings: downloadManager.showSecurityWarnings)
+                    downloadManager.updateSecuritySettings(
+                        showWarnings: downloadManager.showSecurityWarnings)
                 }
-                
+
                 // Auto-quarantine downloads
                 Toggle(isOn: $downloadManager.autoQuarantineDownloads) {
                     VStack(alignment: .leading, spacing: 2) {
@@ -182,7 +183,8 @@ struct DownloadSecuritySettingsView: View {
                     }
                 }
                 .onChange(of: downloadManager.autoQuarantineDownloads) {
-                    downloadManager.updateSecuritySettings(autoQuarantine: downloadManager.autoQuarantineDownloads)
+                    downloadManager.updateSecuritySettings(
+                        autoQuarantine: downloadManager.autoQuarantineDownloads)
                 }
             }
         }
@@ -191,24 +193,25 @@ struct DownloadSecuritySettingsView: View {
         .background(.thinMaterial)
         .cornerRadius(12)
     }
-    
+
     // MARK: - File Security Section
-    
+
     private var fileSecuritySection: some View {
         VStack(alignment: .leading, spacing: 16) {
             Text("File Security Policy")
                 .font(.headline)
                 .fontWeight(.semibold)
-            
+
             VStack(alignment: .leading, spacing: 12) {
                 // Security policy picker
                 VStack(alignment: .leading, spacing: 8) {
                     Text("Security Level")
                         .font(.subheadline)
                         .fontWeight(.medium)
-                    
+
                     Picker("Security Policy", selection: $fileSecurityValidator.securityPolicy) {
-                        ForEach(FileSecurityValidator.SecurityPolicy.allCases, id: \.self) { policy in
+                        ForEach(FileSecurityValidator.SecurityPolicy.allCases, id: \.self) {
+                            policy in
                             VStack(alignment: .leading, spacing: 2) {
                                 Text(policy.displayName)
                                     .font(.subheadline)
@@ -224,9 +227,9 @@ struct DownloadSecuritySettingsView: View {
                         fileSecurityValidator.saveSecuritySettings()
                     }
                 }
-                
+
                 Divider()
-                
+
                 // File type settings
                 Toggle(isOn: $fileSecurityValidator.allowUnknownFileTypes) {
                     VStack(alignment: .leading, spacing: 2) {
@@ -238,7 +241,7 @@ struct DownloadSecuritySettingsView: View {
                             .foregroundColor(.secondary)
                     }
                 }
-                
+
                 Toggle(isOn: $fileSecurityValidator.requireUserConfirmationForExecutables) {
                     VStack(alignment: .leading, spacing: 2) {
                         Text("Confirm Executable Downloads")
@@ -249,24 +252,34 @@ struct DownloadSecuritySettingsView: View {
                             .foregroundColor(.secondary)
                     }
                 }
-                
+
                 // Maximum file size
                 VStack(alignment: .leading, spacing: 8) {
                     Text("Maximum File Size")
                         .font(.subheadline)
                         .fontWeight(.medium)
-                    
+
                     HStack {
-                        Text(ByteCountFormatter().string(fromByteCount: fileSecurityValidator.maximumFileSize))
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                        
+                        Text(
+                            ByteCountFormatter().string(
+                                fromByteCount: fileSecurityValidator.maximumFileSize)
+                        )
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+
                         Spacer()
-                        
-                        Stepper("", value: Binding(
-                            get: { fileSecurityValidator.maximumFileSize / (1024 * 1024 * 1024) },
-                            set: { fileSecurityValidator.maximumFileSize = $0 * 1024 * 1024 * 1024 }
-                        ), in: 1...20)
+
+                        Stepper(
+                            "",
+                            value: Binding(
+                                get: {
+                                    fileSecurityValidator.maximumFileSize / (1024 * 1024 * 1024)
+                                },
+                                set: {
+                                    fileSecurityValidator.maximumFileSize = $0 * 1024 * 1024 * 1024
+                                }
+                            ), in: 1...20
+                        )
                         .labelsHidden()
                     }
                 }
@@ -286,15 +299,15 @@ struct DownloadSecuritySettingsView: View {
         .background(.thinMaterial)
         .cornerRadius(12)
     }
-    
+
     // MARK: - Malware Scanning Section
-    
+
     private var malwareScanningSection: some View {
         VStack(alignment: .leading, spacing: 16) {
             Text("Malware Protection")
                 .font(.headline)
                 .fontWeight(.semibold)
-            
+
             VStack(alignment: .leading, spacing: 12) {
                 Toggle(isOn: $malwareScanner.isEnabled) {
                     VStack(alignment: .leading, spacing: 2) {
@@ -306,7 +319,7 @@ struct DownloadSecuritySettingsView: View {
                             .foregroundColor(.secondary)
                     }
                 }
-                
+
                 Toggle(isOn: $malwareScanner.enableHeuristicAnalysis) {
                     VStack(alignment: .leading, spacing: 2) {
                         Text("Heuristic Analysis")
@@ -318,7 +331,7 @@ struct DownloadSecuritySettingsView: View {
                     }
                 }
                 .disabled(!malwareScanner.isEnabled)
-                
+
                 Toggle(isOn: $malwareScanner.enableHashLookup) {
                     VStack(alignment: .leading, spacing: 2) {
                         Text("Hash-based Detection")
@@ -330,7 +343,7 @@ struct DownloadSecuritySettingsView: View {
                     }
                 }
                 .disabled(!malwareScanner.isEnabled)
-                
+
                 Toggle(isOn: $malwareScanner.enableCloudScanning) {
                     VStack(alignment: .leading, spacing: 2) {
                         Text("Cloud Scanning")
@@ -342,7 +355,7 @@ struct DownloadSecuritySettingsView: View {
                     }
                 }
                 .disabled(!malwareScanner.isEnabled)
-                
+
                 // Scanner statistics
                 if malwareScanner.isEnabled {
                     VStack(alignment: .leading, spacing: 4) {
@@ -350,7 +363,7 @@ struct DownloadSecuritySettingsView: View {
                             .font(.caption)
                             .fontWeight(.medium)
                             .foregroundColor(.secondary)
-                        
+
                         HStack {
                             Text("Files Scanned: \(malwareScanner.totalFilesScanned)")
                                 .font(.caption2)
@@ -369,15 +382,15 @@ struct DownloadSecuritySettingsView: View {
         .background(.thinMaterial)
         .cornerRadius(12)
     }
-    
+
     // MARK: - Quarantine Section
-    
+
     private var quarantineSection: some View {
         VStack(alignment: .leading, spacing: 16) {
             Text("Quarantine Management")
                 .font(.headline)
                 .fontWeight(.semibold)
-            
+
             VStack(alignment: .leading, spacing: 12) {
                 Toggle(isOn: $quarantineManager.isEnabled) {
                     VStack(alignment: .leading, spacing: 2) {
@@ -389,7 +402,7 @@ struct DownloadSecuritySettingsView: View {
                             .foregroundColor(.secondary)
                     }
                 }
-                
+
                 Toggle(isOn: $quarantineManager.autoQuarantineDownloads) {
                     VStack(alignment: .leading, spacing: 2) {
                         Text("Auto-Quarantine Downloads")
@@ -401,7 +414,7 @@ struct DownloadSecuritySettingsView: View {
                     }
                 }
                 .disabled(!quarantineManager.isEnabled)
-                
+
                 Toggle(isOn: $quarantineManager.strictQuarantineMode) {
                     VStack(alignment: .leading, spacing: 2) {
                         Text("Strict Quarantine Mode")
@@ -413,7 +426,7 @@ struct DownloadSecuritySettingsView: View {
                     }
                 }
                 .disabled(!quarantineManager.isEnabled)
-                
+
                 // Quarantine statistics
                 if quarantineManager.isEnabled {
                     VStack(alignment: .leading, spacing: 4) {
@@ -421,7 +434,7 @@ struct DownloadSecuritySettingsView: View {
                             .font(.caption)
                             .fontWeight(.medium)
                             .foregroundColor(.secondary)
-                        
+
                         HStack {
                             Text("Files Quarantined: \(quarantineManager.totalFilesQuarantined)")
                                 .font(.caption2)
@@ -440,9 +453,9 @@ struct DownloadSecuritySettingsView: View {
         .background(.thinMaterial)
         .cornerRadius(12)
     }
-    
+
     // MARK: - Advanced Settings Section
-    
+
     private var advancedSettingsSection: some View {
         VStack(alignment: .leading, spacing: 16) {
             Button(action: { showAdvancedSettings.toggle() }) {
@@ -457,7 +470,7 @@ struct DownloadSecuritySettingsView: View {
                 }
             }
             .buttonStyle(PlainButtonStyle())
-            
+
             if showAdvancedSettings {
                 VStack(alignment: .leading, spacing: 12) {
                     // Security monitoring
@@ -471,7 +484,7 @@ struct DownloadSecuritySettingsView: View {
                                 .foregroundColor(.secondary)
                         }
                     }
-                    
+
                     Toggle(isOn: $securityMonitor.enableRealTimeAlerts) {
                         VStack(alignment: .leading, spacing: 2) {
                             Text("Real-time Security Alerts")
@@ -483,7 +496,7 @@ struct DownloadSecuritySettingsView: View {
                         }
                     }
                     .disabled(!securityMonitor.isEnabled)
-                    
+
                     Toggle(isOn: $securityMonitor.enableThreatAnalysis) {
                         VStack(alignment: .leading, spacing: 2) {
                             Text("Threat Pattern Analysis")
@@ -495,32 +508,32 @@ struct DownloadSecuritySettingsView: View {
                         }
                     }
                     .disabled(!securityMonitor.isEnabled)
-                    
+
                     // Log retention
                     VStack(alignment: .leading, spacing: 8) {
                         Text("Log Retention Period")
                             .font(.subheadline)
                             .fontWeight(.medium)
-                        
+
                         HStack {
                             Text("\(securityMonitor.logRetentionDays) days")
                                 .font(.caption)
                                 .foregroundColor(.secondary)
-                            
+
                             Spacer()
-                            
+
                             Stepper("", value: $securityMonitor.logRetentionDays, in: 7...90)
                                 .labelsHidden()
                         }
                     }
-                    
+
                     // Reset buttons
                     HStack(spacing: 12) {
                         Button("Reset File Security") {
                             fileSecurityValidator.resetToDefaults()
                         }
                         .buttonStyle(.bordered)
-                        
+
                         Button("Reset Scanner Stats") {
                             malwareScanner.resetStatistics()
                             quarantineManager.resetStatistics()
@@ -536,24 +549,24 @@ struct DownloadSecuritySettingsView: View {
         .background(.thinMaterial)
         .cornerRadius(12)
     }
-    
+
     // MARK: - Security Reporting Section
-    
+
     private var securityReportingSection: some View {
         VStack(alignment: .leading, spacing: 16) {
             HStack {
                 Text("Security Dashboard")
                     .font(.headline)
                     .fontWeight(.semibold)
-                
+
                 Spacer()
-                
+
                 Button("View Full Report") {
                     showSecurityReport = true
                 }
                 .buttonStyle(.bordered)
             }
-            
+
             if let report = securityReport {
                 VStack(spacing: 12) {
                     // Security score
@@ -567,9 +580,9 @@ struct DownloadSecuritySettingsView: View {
                                 .fontWeight(.semibold)
                                 .foregroundColor(scoreColor(report.securityScore))
                         }
-                        
+
                         Spacer()
-                        
+
                         VStack(alignment: .trailing, spacing: 2) {
                             Text("Total Downloads")
                                 .font(.caption)
@@ -579,12 +592,14 @@ struct DownloadSecuritySettingsView: View {
                                 .fontWeight(.semibold)
                         }
                     }
-                    
+
                     // Quick stats
                     HStack(spacing: 20) {
                         StatView(title: "Secure", value: "\(report.secureDownloads)", color: .green)
                         StatView(title: "Risky", value: "\(report.riskyDownloads)", color: .orange)
-                        StatView(title: "Quarantined", value: "\(report.quarantinedDownloads)", color: .blue)
+                        StatView(
+                            title: "Quarantined", value: "\(report.quarantinedDownloads)",
+                            color: .blue)
                     }
                 }
             } else {
@@ -605,20 +620,24 @@ struct DownloadSecuritySettingsView: View {
             SecurityReportDetailView(report: securityReport, metrics: securityMetrics)
         }
     }
-    
+
     // MARK: - Helper Views
-    
+
     private func scoreColor(_ score: Double) -> Color {
-        if score >= 0.9 { return .green }
-        else if score >= 0.7 { return .orange }
-        else { return .red }
+        if score >= 0.9 {
+            return .green
+        } else if score >= 0.7 {
+            return .orange
+        } else {
+            return .red
+        }
     }
-    
+
     // MARK: - Data Loading
-    
+
     private func loadSecurityData() {
         securityReport = downloadManager.getSecurityReport()
-        
+
         Task {
             securityMetrics = await securityMonitor.getSecurityMetrics()
         }
@@ -631,7 +650,7 @@ struct StatView: View {
     let title: String
     let value: String
     let color: Color
-    
+
     var body: some View {
         VStack(spacing: 4) {
             Text(value)
@@ -648,15 +667,15 @@ struct StatView: View {
 struct SecurityReportDetailView: View {
     let report: DownloadSecurityReport?
     let metrics: SecurityMonitor.SecurityMetrics?
-    
+
     var body: some View {
         NavigationView {
             ScrollView {
                 VStack(alignment: .leading, spacing: 20) {
-                    if let report = report {
+                    if report != nil {
                         Text("Detailed security analysis and recommendations would go here...")
                             .font(.body)
-                        
+
                         // This would include detailed charts, risk breakdowns, etc.
                     }
                 }

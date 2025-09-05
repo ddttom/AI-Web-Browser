@@ -11,47 +11,46 @@ class MLXCacheManager {
 
     // MARK: - Cache Directories
 
+    private var _cachedDirectories: [URL]?
+    private var lastDirectoryCheck: Date?
+    private let directoryCheckThreshold: TimeInterval = 30.0
+    
     /// Get all potential cache directories where MLX models might be stored
     private var cacheDirectories: [URL] {
+        let now = Date()
+        
+        if let cached = _cachedDirectories,
+           let lastCheck = lastDirectoryCheck,
+           now.timeIntervalSince(lastCheck) < directoryCheckThreshold {
+            let timeSinceLastCheck = now.timeIntervalSince(lastCheck)
+            AppLog.debug("💾 [CACHE HIT] Directory cache hit - using cached directories (\(String(format: "%.1f", timeSinceLastCheck))s < \(directoryCheckThreshold)s)")
+            return cached
+        }
+        
         var directories: [URL] = []
 
-        // Hugging Face cache directory (primary location)
         let homeDir = fileManager.homeDirectoryForCurrentUser
         let hfCacheDir = homeDir.appendingPathComponent(".cache/huggingface/hub")
         directories.append(hfCacheDir)
 
-        AppLog.debug("🔍 [CACHE DIRS] Primary HF cache directory: \(hfCacheDir.path)")
-        AppLog.debug(
-            "🔍 [CACHE DIRS] HF cache exists: \(fileManager.fileExists(atPath: hfCacheDir.path))")
-
-        // MLX cache directory
         if let cacheDir = fileManager.urls(for: .cachesDirectory, in: .userDomainMask).first {
             let mlxCacheDir = cacheDir.appendingPathComponent("MLXCache")
             directories.append(mlxCacheDir)
-            AppLog.debug("🔍 [CACHE DIRS] MLX cache directory: \(mlxCacheDir.path)")
-            AppLog.debug(
-                "🔍 [CACHE DIRS] MLX cache exists: \(fileManager.fileExists(atPath: mlxCacheDir.path))"
-            )
         }
 
-        // System cache directories
-        if let systemCacheDir = fileManager.urls(for: .cachesDirectory, in: .systemDomainMask).first
-        {
+        if let systemCacheDir = fileManager.urls(for: .cachesDirectory, in: .systemDomainMask).first {
             let sysCacheDir = systemCacheDir.appendingPathComponent("MLXCache")
             directories.append(sysCacheDir)
-            AppLog.debug("🔍 [CACHE DIRS] System cache directory: \(sysCacheDir.path)")
-            AppLog.debug(
-                "🔍 [CACHE DIRS] System cache exists: \(fileManager.fileExists(atPath: sysCacheDir.path))"
-            )
         }
 
         let existingDirs = directories.filter { fileManager.fileExists(atPath: $0.path) }
-        AppLog.debug(
-            "🔍 [CACHE DIRS] Total directories found: \(directories.count), existing: \(existingDirs.count)"
-        )
-
-        for (index, dir) in existingDirs.enumerated() {
-            AppLog.debug("🔍 [CACHE DIRS] Directory \(index + 1): \(dir.path)")
+        
+        _cachedDirectories = existingDirs
+        lastDirectoryCheck = now
+        
+        AppLog.debug("🆕 [CACHE MISS] Directory cache miss - filesystem scan complete, found \(existingDirs.count) cache directories")
+        if AppLog.isVerboseEnabled {
+            AppLog.debug("🔍 [CACHE DIRS] Found \(existingDirs.count) cache directories")
         }
 
         return existingDirs
@@ -59,25 +58,38 @@ class MLXCacheManager {
 
     // MARK: - Public Interface
 
+    private var lastManualCheck: Date?
+    private var cachedManualCheckResult: Bool = false
+    private let manualCheckThreshold: TimeInterval = 2.0
+    
     /// Check if a manual download process is currently active
     func isManualDownloadActive() async -> Bool {
-        AppLog.debug("🚀 [SMART INIT] Checking for manual download activity...")
+        let now = Date()
+        if let lastCheck = lastManualCheck,
+           now.timeIntervalSince(lastCheck) < manualCheckThreshold {
+            let timeSinceLastCheck = now.timeIntervalSince(lastCheck)
+            AppLog.debug("💾 [CACHE HIT] Manual download check cache hit - returning \(cachedManualCheckResult) (\(String(format: "%.2f", timeSinceLastCheck))s < \(manualCheckThreshold)s)")
+            return cachedManualCheckResult
+        }
         
-        // Check for manual download lock file first (most reliable)
+        if AppLog.isVerboseEnabled {
+            AppLog.debug("🚀 [SMART INIT] Checking for manual download activity...")
+        }
+        
         let homeDir = fileManager.homeDirectoryForCurrentUser
         let lockFile = homeDir.appendingPathComponent(
             ".cache/huggingface/hub/models--mlx-community--gemma-2-2b-it-4bit/.manual_download_lock"
         )
 
-        AppLog.debug("🚀 [SMART INIT] Checking for lock file at: \(lockFile.path)")
         if fileManager.fileExists(atPath: lockFile.path) {
-            AppLog.debug("🚀 [SMART INIT] ✅ Manual download lock file detected - deferring automatic initialization")
+            if AppLog.isVerboseEnabled {
+                AppLog.debug("🚀 [SMART INIT] ✅ Manual download lock file detected")
+            }
+            cachedManualCheckResult = true
+            lastManualCheck = now
             return true
         }
-        AppLog.debug("🚀 [SMART INIT] ❌ No lock file found")
 
-        // Simplified process check to prevent hanging
-        AppLog.debug("🚀 [SMART INIT] Performing simplified process check...")
         do {
             let task = Process()
             task.launchPath = "/usr/bin/pgrep"
@@ -85,23 +97,27 @@ class MLXCacheManager {
             
             let pipe = Pipe()
             task.standardOutput = pipe
-            task.standardError = Pipe() // Capture stderr to prevent output
+            task.standardError = Pipe()
             
             try task.run()
             task.waitUntilExit()
             
-            if task.terminationStatus == 0 {
-                AppLog.debug("🚀 [SMART INIT] ✅ Manual download script detected via pgrep - deferring initialization")
-                return true
-            } else {
-                AppLog.debug("🚀 [SMART INIT] ❌ No manual download script processes found")
+            let isActive = task.terminationStatus == 0
+            cachedManualCheckResult = isActive
+            lastManualCheck = now
+            
+            AppLog.debug("🆕 [CACHE MISS] Manual download check cache miss - process check result: \(isActive)")
+            if AppLog.isVerboseEnabled {
+                AppLog.debug("🚀 [SMART INIT] Manual download active: \(isActive)")
             }
+            
+            return isActive
+            
         } catch {
-            AppLog.debug("🚀 [SMART INIT] ❌ Could not check processes: \(error.localizedDescription)")
+            cachedManualCheckResult = false
+            lastManualCheck = now
+            return false
         }
-        
-        AppLog.debug("🚀 [SMART INIT] ✅ No manual download activity detected - proceeding with app initialization")
-        return false
     }
 
     /// Check if model files exist and are complete (without validation overhead) - New method with model configuration
@@ -117,22 +133,34 @@ class MLXCacheManager {
             "model.safetensors",
         ]
 
-        AppLog.debug("🔍 [CACHE DEBUG] Searching in \(cacheDirectories.count) cache directories")
+        if AppLog.isVerboseEnabled {
+            AppLog.debug("🔍 [CACHE DEBUG] Searching in \(cacheDirectories.count) cache directories")
+        }
         for (index, cacheDir) in cacheDirectories.enumerated() {
-            AppLog.debug("🔍 [CACHE DEBUG] Checking cache directory \(index + 1): \(cacheDir.path)")
+            if AppLog.isVerboseEnabled {
+                AppLog.debug("🔍 [CACHE DEBUG] Checking cache directory \(index + 1): \(cacheDir.path)")
+            }
 
             if let modelDir = await findModelDirectory(in: cacheDir, for: modelConfig) {
-                AppLog.debug("🔍 [CACHE DEBUG] Found model directory: \(modelDir.path)")
+                if AppLog.isVerboseEnabled {
+                    AppLog.debug("🔍 [CACHE DEBUG] Found model directory: \(modelDir.path)")
+                }
                 // Quick file existence check without full validation
                 var allFilesPresent = true
-                AppLog.debug("🔍 [CACHE DEBUG] Checking required files: \(requiredFiles)")
+                if AppLog.isVerboseEnabled {
+                    AppLog.debug("🔍 [CACHE DEBUG] Checking required files: \(requiredFiles)")
+                }
 
                 for fileName in requiredFiles {
                     let filePath = modelDir.appendingPathComponent(fileName)
-                    AppLog.debug("🔍 [CACHE DEBUG] Checking file: \(filePath.path)")
+                    if AppLog.isVerboseEnabled {
+                        AppLog.debug("🔍 [CACHE DEBUG] Checking file: \(filePath.path)")
+                    }
 
                     if !fileManager.fileExists(atPath: filePath.path) {
-                        AppLog.debug("🔍 [CACHE DEBUG] ❌ Missing file: \(fileName)")
+                        if AppLog.isVerboseEnabled {
+                            AppLog.debug("🔍 [CACHE DEBUG] ❌ Missing file: \(fileName)")
+                        }
                         allFilesPresent = false
                         break
                     }
@@ -141,12 +169,16 @@ class MLXCacheManager {
                     do {
                         let attributes = try fileManager.attributesOfItem(atPath: filePath.path)
                         let fileSize = attributes[.size] as? Int64 ?? 0
-                        AppLog.debug(
-                            "🔍 [CACHE DEBUG] ✅ Found file: \(fileName) (\(fileSize) bytes)")
+                        if AppLog.isVerboseEnabled {
+                            AppLog.debug(
+                                "🔍 [CACHE DEBUG] ✅ Found file: \(fileName) (\(fileSize) bytes)")
+                        }
 
                         if fileSize < 10 {  // Files should be larger than 10 bytes
-                            AppLog.debug(
-                                "🔍 [CACHE DEBUG] ❌ File too small: \(fileName) (\(fileSize) bytes)")
+                            if AppLog.isVerboseEnabled {
+                                AppLog.debug(
+                                    "🔍 [CACHE DEBUG] ❌ File too small: \(fileName) (\(fileSize) bytes)")
+                            }
                             allFilesPresent = false
                             break
                         }
@@ -160,11 +192,15 @@ class MLXCacheManager {
                 }
 
                 if allFilesPresent {
-                    AppLog.debug(
-                        "🔍 [CACHE DEBUG] ✅ All required files found for: \(modelConfig.modelId)")
+                    if AppLog.isVerboseEnabled {
+                        AppLog.debug(
+                            "🔍 [CACHE DEBUG] ✅ All required files found for: \(modelConfig.modelId)")
+                    }
                     return true
                 } else {
-                    AppLog.debug("🔍 [CACHE DEBUG] ❌ Some files missing for: \(modelConfig.modelId)")
+                    if AppLog.isVerboseEnabled {
+                        AppLog.debug("🔍 [CACHE DEBUG] ❌ Some files missing for: \(modelConfig.modelId)")
+                    }
                 }
             }
         }
@@ -307,12 +343,21 @@ class MLXCacheManager {
     /// Aggressively clean up tokenizer-related files that might be corrupted
     private func cleanupTokenizerFiles(for modelId: String) async throws {
         AppLog.debug("Performing aggressive tokenizer cleanup for model: \(modelId)")
+        
+        let legacyConfig = MLXModelConfiguration(
+            name: "Legacy Model",
+            modelId: modelId,
+            huggingFaceRepo: modelId,
+            cacheDirectoryName: getCacheDirNameFromModelId(modelId),
+            estimatedSizeGB: 1.0,
+            modelKey: modelId
+        )
 
         for cacheDir in cacheDirectories {
             guard fileManager.fileExists(atPath: cacheDir.path) else { continue }
 
             // Find model directories
-            if let modelDir = await findModelDirectory(in: cacheDir, for: modelId) {
+            if let modelDir = await findModelDirectory(in: cacheDir, for: legacyConfig) {
                 let tokenizerFiles = [
                     "tokenizer.json",
                     "tokenizer_config.json",
@@ -371,8 +416,17 @@ class MLXCacheManager {
             "model.safetensors",
         ]
 
+        let legacyConfig = MLXModelConfiguration(
+            name: "Legacy Model",
+            modelId: modelId,
+            huggingFaceRepo: modelId,
+            cacheDirectoryName: getCacheDirNameFromModelId(modelId),
+            estimatedSizeGB: 1.0,
+            modelKey: modelId
+        )
+        
         for cacheDir in cacheDirectories {
-            if let modelDir = await findModelDirectory(in: cacheDir, for: modelId) {
+            if let modelDir = await findModelDirectory(in: cacheDir, for: legacyConfig) {
                 // Check required files
                 for fileName in requiredFiles {
                     let filePath = modelDir.appendingPathComponent(fileName)
@@ -532,7 +586,9 @@ class MLXCacheManager {
     private func getCacheDirectoryName(for modelConfig: MLXModelConfiguration) -> String {
         // Use the preconfigured cache directory name from the model configuration
         // This ensures consistency with manual download script naming
-        AppLog.debug("🔍 [CACHE DEBUG] Using cache directory name from config: \(modelConfig.cacheDirectoryName)")
+        if AppLog.isVerboseEnabled {
+            AppLog.debug("🔍 [CACHE DEBUG] Using cache directory name from config: \(modelConfig.cacheDirectoryName)")
+        }
         return modelConfig.cacheDirectoryName
     }
 
@@ -544,16 +600,22 @@ class MLXCacheManager {
         )
 
         do {
-            let contents = try fileManager.contentsOfDirectory(
-                at: cacheDir,
-                includingPropertiesForKeys: [.isDirectoryKey],
-                options: [.skipsHiddenFiles]
-            )
+            let contents = try await Task.detached { [fileManager] in
+                return try fileManager.contentsOfDirectory(
+                    at: cacheDir,
+                    includingPropertiesForKeys: [.isDirectoryKey],
+                    options: [.skipsHiddenFiles]
+                )
+            }.value
 
-            AppLog.debug("🔍 [CACHE DEBUG] Found \(contents.count) items in cache directory")
+            if AppLog.isVerboseEnabled {
+                AppLog.debug("🔍 [CACHE DEBUG] Found \(contents.count) items in cache directory")
+            }
 
             let expectedCacheDir = getCacheDirectoryName(for: modelConfig)
-            AppLog.debug("🔍 [CACHE DEBUG] Looking for cache directory: \(expectedCacheDir)")
+            if AppLog.isVerboseEnabled {
+                AppLog.debug("🔍 [CACHE DEBUG] Looking for cache directory: \(expectedCacheDir)")
+            }
 
             for item in contents {
                 let fileName = item.lastPathComponent
@@ -564,7 +626,9 @@ class MLXCacheManager {
 
                 // Check for exact Hugging Face cache directory name
                 if fileName == expectedCacheDir {
-                    AppLog.debug("🔍 [CACHE DEBUG] ✅ Found matching directory: \(fileName)")
+                    if AppLog.isVerboseEnabled {
+                        AppLog.debug("🔍 [CACHE DEBUG] ✅ Found matching directory: \(fileName)")
+                    }
                     var isDirectory: ObjCBool = false
                     if fileManager.fileExists(atPath: item.path, isDirectory: &isDirectory)
                         && isDirectory.boolValue
@@ -572,15 +636,19 @@ class MLXCacheManager {
                         // Look for snapshots directory (required for HuggingFace cache structure)
                         let snapshotsDir = item.appendingPathComponent("snapshots")
                         if fileManager.fileExists(atPath: snapshotsDir.path) {
-                            AppLog.debug(
-                                "🔍 [CACHE DEBUG] Found snapshots directory, looking for main snapshot"
-                            )
+                            if AppLog.isVerboseEnabled {
+                                AppLog.debug(
+                                    "🔍 [CACHE DEBUG] Found snapshots directory, looking for main snapshot"
+                                )
+                            }
                             // Look specifically for 'main' snapshot first (manual downloads use this)
                             let mainSnapshotDir = snapshotsDir.appendingPathComponent("main")
                             if fileManager.fileExists(atPath: mainSnapshotDir.path) {
-                                AppLog.debug(
-                                    "🔍 [CACHE DEBUG] ✅ Found main snapshot directory: \(mainSnapshotDir.path)"
-                                )
+                                if AppLog.isVerboseEnabled {
+                                    AppLog.debug(
+                                        "🔍 [CACHE DEBUG] ✅ Found main snapshot directory: \(mainSnapshotDir.path)"
+                                    )
+                                }
                                 return mainSnapshotDir
                             }
                             // Fallback to finding the latest snapshot
@@ -612,7 +680,9 @@ class MLXCacheManager {
                     if fileManager.fileExists(atPath: item.path, isDirectory: &isDirectory)
                         && isDirectory.boolValue
                     {
-                        AppLog.debug("🔍 [CACHE DEBUG] ✅ Found legacy model directory: \(fileName)")
+                        if AppLog.isVerboseEnabled {
+                            AppLog.debug("🔍 [CACHE DEBUG] ✅ Found legacy model directory: \(fileName)")
+                        }
                         return item
                     }
                 }
@@ -670,11 +740,13 @@ class MLXCacheManager {
     /// Find the latest snapshot in a snapshots directory
     private func findLatestSnapshot(in snapshotsDir: URL) async -> URL? {
         do {
-            let snapshots = try fileManager.contentsOfDirectory(
-                at: snapshotsDir,
-                includingPropertiesForKeys: [.creationDateKey, .isDirectoryKey],
-                options: [.skipsHiddenFiles]
-            )
+            let snapshots = try await Task.detached { [fileManager] in
+                return try fileManager.contentsOfDirectory(
+                    at: snapshotsDir,
+                    includingPropertiesForKeys: [.creationDateKey, .isDirectoryKey],
+                    options: [.skipsHiddenFiles]
+                )
+            }.value
 
             let directories = snapshots.filter { url in
                 var isDirectory: ObjCBool = false
@@ -701,7 +773,9 @@ class MLXCacheManager {
     /// Check if a file is incomplete or corrupted
     private func isFileIncompleteOrCorrupted(_ fileURL: URL) async -> Bool {
         do {
-            let attributes = try fileManager.attributesOfItem(atPath: fileURL.path)
+            let attributes = try await Task.detached { [fileManager] in
+                return try fileManager.attributesOfItem(atPath: fileURL.path)
+            }.value
             let fileSize = attributes[.size] as? Int64 ?? 0
 
             // File is too small to be valid
