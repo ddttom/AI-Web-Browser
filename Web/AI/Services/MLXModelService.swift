@@ -50,6 +50,8 @@ class MLXModelService: ObservableObject {
 
     private let fileManager = FileManager.default
     private var downloadTask: Task<Void, Error>?
+    private var lastReadyCheck: Date?
+    private let readyCheckThreshold: TimeInterval = 2.0
     private var initializationTask: Task<Void, Error>?
     private var readinessCompletionHandlers: [CheckedContinuation<Bool, Never>] = []
     private var initializationCompletionHandlers: [CheckedContinuation<Void, Never>] = []
@@ -93,30 +95,11 @@ class MLXModelService: ObservableObject {
         let now = Date()
         if let lastCheck = lastReadyCheck, 
            now.timeIntervalSince(lastCheck) < readyCheckThreshold {
-            let timeSinceLastCheck = now.timeIntervalSince(lastCheck)
-            AppLog.debug("🚫 [DEBOUNCE] AI readiness check skipped - debounced (\(String(format: "%.2f", timeSinceLastCheck))s < \(readyCheckThreshold)s)")
             return isModelReady && downloadState == .ready
         }
         
         lastReadyCheck = now
-        AppLog.debug("✅ [DEBOUNCE] AI readiness check allowed - last check was \(lastReadyCheck.map { String(format: "%.2f", now.timeIntervalSince($0)) } ?? "never")s ago")
-        AppLog.debug("🔍 [AI READY CHECK] === isAIReady() called ===")
-        AppLog.debug("🔍 [AI READY CHECK] isModelReady: \(isModelReady)")
-        AppLog.debug("🔍 [AI READY CHECK] downloadState: \(downloadState)")
-        AppLog.debug("🔍 [AI READY CHECK] Smart init in progress: \(Self.isInitializationInProgress)")
-        AppLog.debug("🔍 [AI READY CHECK] Current model exists: \(currentModel != nil)")
-        AppLog.debug("🔍 [AI READY CHECK] MLX container loaded: \(SimplifiedMLXRunner.shared.isModelLoaded)")
-
-        let result = isModelReady && downloadState == .ready
-        AppLog.debug("🔍 [AI READY CHECK] Final result: \(result)")
-
-        if !result {
-            AppLog.debug("🔍 [AI READY CHECK] ❌ AI not ready - this will trigger download")
-            AppLog.debug("🔍 [AI READY CHECK] Current model: \(currentModel?.name ?? "nil")")
-            AppLog.debug("🔍 [AI READY CHECK] Reason: isModelReady=\(isModelReady), downloadState=\(downloadState)")
-        }
-
-        return result
+        return isModelReady && downloadState == .ready
     }
     
     /// Async method to wait for AI readiness without polling - much more efficient than isAIReady()
