@@ -171,6 +171,52 @@ class MLXModelService: ObservableObject {
         }
         initializationCompletionHandlers.removeAll()
     }
+    
+    /// Load existing model files without checking for manual downloads
+    private func loadExistingModel(model: MLXModelConfiguration) async {
+        AppLog.debug("🚀 [SMART INIT] ✅ Complete model files detected - attempting to load existing model")
+        
+        do {
+            // Try to load the existing model without triggering downloads
+            downloadState = .validating
+            downloadProgress = 0.5  // Start at 50% since files exist
+
+            AppLog.debug("🚀 [SMART INIT] Loading model with Hugging Face repo format: \(model.huggingFaceRepo)")
+            
+            // Use the Hugging Face repository format for MLX loading
+            try await SimplifiedMLXRunner.shared.ensureLoaded(modelId: model.huggingFaceRepo)
+
+            AppLog.debug("🔍 [SMART INIT] Setting isModelReady = true")
+            await MainActor.run {
+                isModelReady = true
+                downloadState = .ready
+                downloadProgress = 1.0
+            }
+            AppLog.debug("🔍 [SMART INIT] Model state updated: isModelReady=\(isModelReady), downloadState=\(downloadState)")
+            
+            AppLog.essential("✅ AI model ready")
+            await MainActor.run {
+                notifyReadinessWaiters()
+            }
+
+            AppLog.debug("🚀 [SMART INIT] ✅ Successfully loaded existing model: \(model.name)")
+
+        } catch {
+            AppLog.debug("🚀 [SMART INIT] ❌ Failed to load existing model: \(error.localizedDescription)")
+            AppLog.debug("🚀 [SMART INIT] Error suggests files exist but MLX validation failed")
+            AppLog.debug("🚀 [SMART INIT] Will attempt fresh download to resolve validation issues")
+            
+            // Reset state for fresh download attempt
+            await MainActor.run {
+                downloadState = .notStarted
+                downloadProgress = 0.0
+            }
+            
+            // Fall through to standard initialization
+            AppLog.debug("No existing model found - proceeding with standard initialization")
+            await performIntelligentModelCheck()
+        }
+    }
 
     /// Get model configuration (replaces getModelPath for MLX compatibility)
     @MainActor
@@ -369,8 +415,21 @@ class MLXModelService: ObservableObject {
         AppLog.debug("🚀 [SMART INIT] Starting smart initialization for model: \(model.name)")
         downloadState = .checking
 
-        // Step 1: Check if manual download is currently active
-        AppLog.debug("🚀 [SMART INIT] Step 1: Checking for active manual downloads...")
+        // Step 1: FAST CHECK - Do model files already exist? (optimize for common case)
+        AppLog.debug("🚀 [SMART INIT] Step 1: Quick model file existence check...")
+        let hasCompleteFiles = await MLXCacheManager.shared.hasCompleteModelFiles(for: model)
+        AppLog.debug("🚀 [SMART INIT] Quick check result: \(hasCompleteFiles)")
+
+        if hasCompleteFiles {
+            AppLog.essential("🚀 AI model found - loading existing files")
+            AppLog.debug("🚀 [SMART INIT] ✅ Model files exist - skipping manual download check")
+            // Skip manual download check since we have complete files
+            await loadExistingModel(model: model)
+            return
+        }
+
+        // Step 2: Files don't exist - check if manual download is currently active
+        AppLog.debug("🚀 [SMART INIT] Step 2: Model files missing - checking for active manual downloads...")
         let isManualActive = await MLXCacheManager.shared.isManualDownloadActive()
         AppLog.debug("🚀 [SMART INIT] Manual download active: \(isManualActive)")
 
@@ -383,60 +442,10 @@ class MLXModelService: ObservableObject {
             await waitForManualDownloadCompletion(model: model)
             return
         } else {
-            AppLog.debug("🚀 [SMART INIT] ✅ No manual download active - proceeding to Step 2")
+            AppLog.debug("🚀 [SMART INIT] ✅ No manual download active - need to download model")
         }
 
-        // Step 2: Check for complete model files using the proper model configuration
-        AppLog.debug("🚀 [SMART INIT] Step 2: Checking for complete model files...")
-        AppLog.debug("🚀 [SMART INIT] Calling hasCompleteModelFiles with model configuration: \(model.modelId)")
-
-        let hasCompleteFiles = await MLXCacheManager.shared.hasCompleteModelFiles(for: model)
-        AppLog.debug("🚀 [SMART INIT] hasCompleteModelFiles result: \(hasCompleteFiles)")
-
-        if hasCompleteFiles {
-            AppLog.essential("🚀 AI model found - loading existing files")
-            AppLog.debug(
-                "🚀 [SMART INIT] ✅ Complete model files detected - attempting to load existing model"
-            )
-
-            do {
-                // Try to load the existing model without triggering downloads
-                downloadState = .validating
-                downloadProgress = 0.5  // Start at 50% since files exist
-
-                AppLog.debug("🚀 [SMART INIT] Loading model with Hugging Face repo format: \(model.huggingFaceRepo)")
-                
-                // Use the Hugging Face repository format for MLX loading
-                try await SimplifiedMLXRunner.shared.ensureLoaded(modelId: model.huggingFaceRepo)
-
-                AppLog.debug("🔍 [SMART INIT] Setting isModelReady = true")
-                isModelReady = true
-                AppLog.debug("🔍 [SMART INIT] Setting downloadState = .ready")
-                downloadState = .ready
-                downloadProgress = 1.0
-                AppLog.debug("🔍 [SMART INIT] Model state updated: isModelReady=\(isModelReady), downloadState=\(downloadState)")
-                
-                AppLog.essential("✅ AI model ready")
-                notifyReadinessWaiters()
-
-                AppLog.debug("🚀 [SMART INIT] ✅ Successfully loaded existing model: \(model.name)")
-                return
-
-            } catch {
-                AppLog.debug(
-                    "🚀 [SMART INIT] ❌ Failed to load existing model: \(error.localizedDescription)"
-                )
-                AppLog.debug("🚀 [SMART INIT] Error suggests files exist but MLX validation failed")
-                AppLog.debug("🚀 [SMART INIT] Will attempt fresh download to resolve validation issues")
-                
-                // Reset state for fresh download attempt
-                downloadState = .notStarted
-                downloadProgress = 0.0
-                // Fall through to standard initialization
-            }
-        } else {
-            AppLog.debug("🚀 [SMART INIT] ❌ No complete model files found")
-        }
+        // Step 3: No existing model found, proceed with standard initialization
 
         // Step 3: No existing model found, proceed with standard initialization
         AppLog.debug("No existing model found - proceeding with standard initialization")

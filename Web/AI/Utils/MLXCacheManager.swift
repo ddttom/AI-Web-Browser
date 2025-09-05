@@ -569,7 +569,9 @@ class MLXCacheManager {
         // Use the preconfigured cache directory name from the model configuration
         // This ensures consistency with manual download script naming
         if AppLog.isVerboseEnabled {
-            AppLog.debug("🔍 [CACHE DEBUG] Using cache directory name from config: \(modelConfig.cacheDirectoryName)")
+            if AppLog.isVerboseEnabled {
+                AppLog.debug("🔍 [CACHE DEBUG] Using cache directory name from config: \(modelConfig.cacheDirectoryName)")
+            }
         }
         return modelConfig.cacheDirectoryName
     }
@@ -589,12 +591,16 @@ class MLXCacheManager {
             )
 
             if AppLog.isVerboseEnabled {
-                AppLog.debug("🔍 [CACHE DEBUG] Found \(contents.count) items in cache directory")
+                if AppLog.isVerboseEnabled {
+                    AppLog.debug("🔍 [CACHE DEBUG] Found \(contents.count) items in cache directory")
+                }
             }
 
             let expectedCacheDir = getCacheDirectoryName(for: modelConfig)
             if AppLog.isVerboseEnabled {
-                AppLog.debug("🔍 [CACHE DEBUG] Looking for cache directory: \(expectedCacheDir)")
+                if AppLog.isVerboseEnabled {
+                    AppLog.debug("🔍 [CACHE DEBUG] Looking for cache directory: \(expectedCacheDir)")
+                }
             }
 
             for item in contents {
@@ -616,15 +622,21 @@ class MLXCacheManager {
                         // Look for snapshots directory (required for HuggingFace cache structure)
                         let snapshotsDir = item.appendingPathComponent("snapshots")
                         if fileManager.fileExists(atPath: snapshotsDir.path) {
-                            AppLog.debug(
-                                "🔍 [CACHE DEBUG] Found snapshots directory, looking for main snapshot"
-                            )
+                            if AppLog.isVerboseEnabled {
+                                AppLog.debug(
+                                    "🔍 [CACHE DEBUG] Found snapshots directory, looking for main snapshot"
+                                )
+                            }
+                        }
                             // Look specifically for 'main' snapshot first (manual downloads use this)
                             let mainSnapshotDir = snapshotsDir.appendingPathComponent("main")
                             if fileManager.fileExists(atPath: mainSnapshotDir.path) {
-                                AppLog.debug(
-                                    "🔍 [CACHE DEBUG] ✅ Found main snapshot directory: \(mainSnapshotDir.path)"
-                                )
+                                if AppLog.isVerboseEnabled {
+                                    AppLog.debug(
+                                        "🔍 [CACHE DEBUG] ✅ Found main snapshot directory: \(mainSnapshotDir.path)"
+                                    )
+                                }
+                            }
                                 return mainSnapshotDir
                             }
                             // Fallback to finding the latest snapshot
