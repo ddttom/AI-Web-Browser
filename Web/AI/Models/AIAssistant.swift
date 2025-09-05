@@ -111,12 +111,8 @@ class AIAssistant: ObservableObject {
                 try validateHardware()
 
                 await updateStatus("Checking MLX AI model availability...")
-                if !(await mlxModelService.isAIReady()) {
-                    await updateStatus("MLX AI model not found - preparing download...")
-                    let downloadInfo = await mlxModelService.getDownloadInfo()
-                    AppLog.debug("MLX model needs download: \(downloadInfo.formattedSize)")
-                    try await mlxModelService.initializeAI()
-                }
+                // Just call initializeAI() - it will handle all the checks internally and return early if ready
+                try await mlxModelService.initializeAI()
 
                 await updateStatus("Loading MLX AI model...")
                 

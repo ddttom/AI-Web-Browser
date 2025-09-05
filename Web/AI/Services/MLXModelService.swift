@@ -236,12 +236,17 @@ class MLXModelService: ObservableObject {
 
     /// Start AI initialization - downloads model if needed
     func initializeAI() async throws {
+        // Quick early return if already fully initialized
+        if isModelReady && downloadState == .ready && !Self.isInitializationInProgress {
+            return
+        }
+        
         AppLog.debug("🔥 [INIT AI] initializeAI() called")
         AppLog.debug("🔍 [INIT AI] State check: isModelReady=\(isModelReady), downloadState=\(downloadState)")
         AppLog.debug("🔍 [INIT AI] Smart init in progress: \(Self.isInitializationInProgress)")
 
-        // If already ready, no action needed
-        if await isAIReady() {
+        // If already ready, no action needed - check internal state directly
+        if isModelReady && downloadState == .ready {
             AppLog.debug("🔥 [INIT AI] MLX AI model already ready - no download needed")
             return
         } else {
