@@ -426,31 +426,44 @@ For users wanting to convert GGUF models to MLX format:
 - Automatic model verification and README generation
 - Outputs to standard Web browser cache directory
 
-## Performance Optimizations
+## Performance Optimizations & Async Architecture
 
-Web includes comprehensive performance optimizations for efficient AI initialization and resource management:
+Web implements comprehensive performance optimizations with a focus on efficient AI initialization and resource coordination:
 
-### Async/Await AI Initialization
+### Async/Await Notification System (v2.11.0)
 
-**Problem**: Previous versions used polling-based AI readiness checks causing excessive CPU usage and startup delays.
+**Problem**: Previous versions used polling-based coordination causing excessive CPU usage, log noise, and startup delays.
 
-**Solution**: Implemented async/await pattern with `withCheckedContinuation` for efficient AI readiness coordination:
+**Solution**: Complete replacement with async/await notification pattern using `withCheckedContinuation`:
 
 ```swift
-// Efficient async waiting instead of polling
-let isReady = await mlxModelService.waitForAIReadiness()
-if isReady {
-    AppLog.debug("✅ AI readiness wait completed successfully")  
-} else {
-    AppLog.error("❌ AI readiness wait failed")
+// Modern async coordination eliminates polling
+private var initializationContinuations: [CheckedContinuation<Bool, Never>] = []
+
+func waitForInitialization() async -> Bool {
+    return await withCheckedContinuation { continuation in
+        if isModelReady {
+            continuation.resume(returning: true)
+        } else {
+            initializationContinuations.append(continuation)
+        }
+    }
+}
+
+func notifyInitializationComplete() {
+    for continuation in initializationContinuations {
+        continuation.resume(returning: true)
+    }
+    initializationContinuations.removeAll()
 }
 ```
 
 **Benefits**:
-- **Zero CPU overhead**: No polling loops consuming resources
-- **Immediate response**: Notification-based wakeup when AI becomes ready
-- **Multiple waiters**: Supports concurrent async waiters with single notification
-- **Comprehensive logging**: Success/failure tracking for debugging
+- **Zero CPU overhead**: No polling loops or background timers
+- **Instant response**: Immediate wakeup when conditions are met
+- **Multiple waiters**: Supports unlimited concurrent async waiters
+- **Log noise elimination**: Single wait message instead of repeated polling
+- **Resource efficiency**: No thread spawning or timer management overhead
 
 ### Singleton Pattern Implementation
 
