@@ -50,8 +50,6 @@ class MLXModelService: ObservableObject {
 
     private let fileManager = FileManager.default
     private var downloadTask: Task<Void, Error>?
-    private var lastReadyCheck: Date?
-    private let readyCheckThreshold: TimeInterval = 2.0
     private var initializationTask: Task<Void, Error>?
     private var readinessCompletionHandlers: [CheckedContinuation<Bool, Never>] = []
     private var initializationCompletionHandlers: [CheckedContinuation<Void, Never>] = []
