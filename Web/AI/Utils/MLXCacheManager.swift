@@ -343,12 +343,21 @@ class MLXCacheManager {
     /// Aggressively clean up tokenizer-related files that might be corrupted
     private func cleanupTokenizerFiles(for modelId: String) async throws {
         AppLog.debug("Performing aggressive tokenizer cleanup for model: \(modelId)")
+        
+        let legacyConfig = MLXModelConfiguration(
+            name: "Legacy Model",
+            modelId: modelId,
+            huggingFaceRepo: modelId,
+            cacheDirectoryName: getCacheDirNameFromModelId(modelId),
+            estimatedSizeGB: 1.0,
+            modelKey: modelId
+        )
 
         for cacheDir in cacheDirectories {
             guard fileManager.fileExists(atPath: cacheDir.path) else { continue }
 
             // Find model directories
-            if let modelDir = await findModelDirectory(in: cacheDir, for: modelId) {
+            if let modelDir = await findModelDirectory(in: cacheDir, for: legacyConfig) {
                 let tokenizerFiles = [
                     "tokenizer.json",
                     "tokenizer_config.json",
@@ -407,8 +416,17 @@ class MLXCacheManager {
             "model.safetensors",
         ]
 
+        let legacyConfig = MLXModelConfiguration(
+            name: "Legacy Model",
+            modelId: modelId,
+            huggingFaceRepo: modelId,
+            cacheDirectoryName: getCacheDirNameFromModelId(modelId),
+            estimatedSizeGB: 1.0,
+            modelKey: modelId
+        )
+        
         for cacheDir in cacheDirectories {
-            if let modelDir = await findModelDirectory(in: cacheDir, for: modelId) {
+            if let modelDir = await findModelDirectory(in: cacheDir, for: legacyConfig) {
                 // Check required files
                 for fileName in requiredFiles {
                     let filePath = modelDir.appendingPathComponent(fileName)
@@ -569,9 +587,7 @@ class MLXCacheManager {
         // Use the preconfigured cache directory name from the model configuration
         // This ensures consistency with manual download script naming
         if AppLog.isVerboseEnabled {
-            if AppLog.isVerboseEnabled {
-                AppLog.debug("🔍 [CACHE DEBUG] Using cache directory name from config: \(modelConfig.cacheDirectoryName)")
-            }
+            AppLog.debug("🔍 [CACHE DEBUG] Using cache directory name from config: \(modelConfig.cacheDirectoryName)")
         }
         return modelConfig.cacheDirectoryName
     }
@@ -584,23 +600,21 @@ class MLXCacheManager {
         )
 
         do {
-            let contents = try fileManager.contentsOfDirectory(
-                at: cacheDir,
-                includingPropertiesForKeys: [.isDirectoryKey],
-                options: [.skipsHiddenFiles]
-            )
+            let contents = try await Task.detached { [fileManager] in
+                return try fileManager.contentsOfDirectory(
+                    at: cacheDir,
+                    includingPropertiesForKeys: [.isDirectoryKey],
+                    options: [.skipsHiddenFiles]
+                )
+            }.value
 
             if AppLog.isVerboseEnabled {
-                if AppLog.isVerboseEnabled {
-                    AppLog.debug("🔍 [CACHE DEBUG] Found \(contents.count) items in cache directory")
-                }
+                AppLog.debug("🔍 [CACHE DEBUG] Found \(contents.count) items in cache directory")
             }
 
             let expectedCacheDir = getCacheDirectoryName(for: modelConfig)
             if AppLog.isVerboseEnabled {
-                if AppLog.isVerboseEnabled {
-                    AppLog.debug("🔍 [CACHE DEBUG] Looking for cache directory: \(expectedCacheDir)")
-                }
+                AppLog.debug("🔍 [CACHE DEBUG] Looking for cache directory: \(expectedCacheDir)")
             }
 
             for item in contents {
@@ -627,7 +641,6 @@ class MLXCacheManager {
                                     "🔍 [CACHE DEBUG] Found snapshots directory, looking for main snapshot"
                                 )
                             }
-                        }
                             // Look specifically for 'main' snapshot first (manual downloads use this)
                             let mainSnapshotDir = snapshotsDir.appendingPathComponent("main")
                             if fileManager.fileExists(atPath: mainSnapshotDir.path) {
@@ -636,7 +649,6 @@ class MLXCacheManager {
                                         "🔍 [CACHE DEBUG] ✅ Found main snapshot directory: \(mainSnapshotDir.path)"
                                     )
                                 }
-                            }
                                 return mainSnapshotDir
                             }
                             // Fallback to finding the latest snapshot
@@ -728,11 +740,13 @@ class MLXCacheManager {
     /// Find the latest snapshot in a snapshots directory
     private func findLatestSnapshot(in snapshotsDir: URL) async -> URL? {
         do {
-            let snapshots = try fileManager.contentsOfDirectory(
-                at: snapshotsDir,
-                includingPropertiesForKeys: [.creationDateKey, .isDirectoryKey],
-                options: [.skipsHiddenFiles]
-            )
+            let snapshots = try await Task.detached { [fileManager] in
+                return try fileManager.contentsOfDirectory(
+                    at: snapshotsDir,
+                    includingPropertiesForKeys: [.creationDateKey, .isDirectoryKey],
+                    options: [.skipsHiddenFiles]
+                )
+            }.value
 
             let directories = snapshots.filter { url in
                 var isDirectory: ObjCBool = false
@@ -759,7 +773,9 @@ class MLXCacheManager {
     /// Check if a file is incomplete or corrupted
     private func isFileIncompleteOrCorrupted(_ fileURL: URL) async -> Bool {
         do {
-            let attributes = try fileManager.attributesOfItem(atPath: fileURL.path)
+            let attributes = try await Task.detached { [fileManager] in
+                return try fileManager.attributesOfItem(atPath: fileURL.path)
+            }.value
             let fileSize = attributes[.size] as? Int64 ?? 0
 
             // File is too small to be valid
