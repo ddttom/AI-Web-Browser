@@ -195,7 +195,7 @@ Major efficiency improvements eliminating unnecessary processing after model ini
 **Smart Coordination**:
 - **Async Notification System**: Replaced polling loops with `withCheckedContinuation` notifications
 - **Guard Message Reduction**: 100% elimination of repetitive "waiting for smart init" messages  
-- **Debounced Checking**: Rate-limited readiness checks prevent excessive validation
+- **Silent Debouncing**: Rate-limited readiness checks prevent excessive validation without debug noise
 - **Race Condition Resolution**: Proper async coordination prevents duplicate operations
 
 **Production Build Improvements**:
@@ -203,17 +203,20 @@ Major efficiency improvements eliminating unnecessary processing after model ini
 - **System Error Filtering**: Suppression of benign WebKit, Metal, and network warnings
 - **Cache Debug Suppression**: Verbose file validation logging only in debug mode
 - **Silent Operation**: Minimal logging when everything is working correctly
+- **Debug Message Cleanup**: Removed noisy debounce and AI ready check messages
 
 ```bash
-# BEFORE: Excessive checking after model ready
-🔥 [INIT AI] initializeAI() called
-🔍 [CACHE DEBUG] Checking for complete model files for ID: gemma3_2B_4bit
-🔍 [CACHE DEBUG] Searching in 1 cache directories
-🔍 [CACHE DEBUG] ✅ Found file: config.json (982 bytes)
-# (15+ more cache check messages even though model already loaded)
+# BEFORE: Excessive debug noise
+🚫 [DEBOUNCE] AI readiness check skipped - debounced (0.06s < 2.0s)
+✅ [DEBOUNCE] AI readiness check allowed - last check was 0.00s ago
+🔍 [AI READY CHECK] === isAIReady() called ===
+🔍 [AI READY CHECK] isModelReady: true
+🔍 [AI READY CHECK] downloadState: ready
+🔍 [AI READY CHECK] Final result: true
+# (repeated multiple times with excessive detail)
 
-# AFTER: Silent operation when ready
-# (no messages - silent early return)
+# AFTER: Silent operation with preserved functionality
+# (debouncing still works - just no debug noise)
 ```
 
 **Debug Build Enhancements**:
