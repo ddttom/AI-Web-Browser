@@ -44,7 +44,7 @@ https://github.com/user-attachments/assets/85629abc-5527-4345-b1a8-a988e0417c0a
 - **Manual Download Support**: Seamless coordination with manual download processes
 - **Performance Optimized**: Clean production startup with essential-only logging, optimized auto-read thresholds, debounced AI readiness checks, reduced log noise, and comprehensive debug mode for development
 - **Swift 6 Compliant**: Full concurrency support with proper MainActor isolation and Sendable compliance
-- **Smart Assistance**: Integrated AI sidebar for web content analysis with TL;DR and page + history context. (Still rough with bugs, but nice to play and have fun)
+- **Smart Assistance**: Integrated AI sidebar visible by default for web content analysis with TL;DR and page + history context, featuring contextual status messages and persistent visibility preferences
 
 ## Requirements
 
@@ -221,6 +221,30 @@ Major efficiency improvements eliminating unnecessary processing after model ini
 - **Verbose Control**: Fine-grained control via `App.VerboseLogs` UserDefault
 - **Targeted Logging**: Debug messages only when actual work is being performed
 - **Performance Insights**: Detailed metrics available on demand without noise
+
+#### User Experience Improvements (v2.11.2)
+Enhanced interface and status messaging for better usability:
+
+**AI Sidebar Enhancements**:
+- **Visible by Default**: AI sidebar now shows on startup to improve feature discoverability
+- **Persistent State**: User's expand/collapse preference remembered between app sessions via `@AppStorage`
+- **Contextual Status Messages**: Accurate progress indicators based on actual system state
+- **Smart Messaging**: Only shows "Downloading and optimizing" during actual downloads
+
+**Status Message Accuracy**:
+```bash
+# Context-aware messages replace generic "downloading" text
+• Checking for model files...     # When scanning for existing models
+• Validating model files...       # When verifying file integrity  
+• Downloading and optimizing...   # Only during actual downloads
+• Model ready                     # When fully initialized
+```
+
+**Benefits**:
+- **Better Discoverability**: AI features visible by default for new users
+- **Reduced Confusion**: Status messages accurately reflect current operations
+- **User Control**: Sidebar remains fully toggle-able with keyboard shortcut (⇧⌘A)
+- **Persistent Preferences**: Interface state maintained across app restarts
 
 ## AI Features
 
@@ -663,7 +687,7 @@ npm run archive
 | Developer Tools | ⌥⌘I | Open developer tools |
 | Toggle Top Bar | ⇧⌘H | Cycle top bar modes |
 | Toggle Sidebar | ⌘S | Sidebar vs Top tabs |
-| Open AI Panel | ⇧⌘A | Open AI Sidebar |
+| Toggle AI Sidebar | ⇧⌘A | Toggle AI Sidebar (visible by default) |
 
 ## Dependencies
 

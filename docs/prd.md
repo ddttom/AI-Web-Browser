@@ -1333,6 +1333,99 @@ try await mlxModelService.initializeAI()
 - **Reduced Indirection**: Eliminate async calls to check what we already know
 - **Efficient Coordination**: Only coordinate when actual state changes occur
 
+## User Experience Enhancement (v2.11.2)
+
+### Interface and Status Message Improvements
+
+Building on the performance optimizations, version 2.11.2 introduces critical user experience enhancements that improve feature discoverability and provide accurate status feedback.
+
+#### Key Improvements
+
+**1. AI Sidebar Default Visibility**
+```swift
+// Enhanced sidebar state management with persistence
+@AppStorage("aiSidebarExpanded") private var isExpanded: Bool = true
+
+// Benefits:
+// - Visible by default for new users
+// - State persisted between app sessions
+// - Maintains full toggle functionality
+```
+
+**2. Contextual Status Messages**
+```swift
+private func downloadProgressMessage() -> String {
+    switch aiAssistant.downloadState {
+    case .downloading:
+        return "Downloading and optimizing model..."
+    case .validating:
+        return "Validating model files..."
+    case .checking:
+        return "Checking for model files..."
+    case .notStarted:
+        return "Preparing to initialize..."
+    case .ready:
+        return "Model ready"
+    case .failed(let error):
+        return "Failed: \(error)"
+    }
+}
+```
+
+**3. Download State Integration**
+```swift
+// AIAssistant now exposes downloadState for UI consistency
+@MainActor @Published var downloadState: MLXModelService.DownloadState = .notStarted
+
+// Synchronized with MLXModelService via reactive subscription
+mlxModelService.$downloadState
+    .receive(on: DispatchQueue.main)
+    .sink { [weak self] state in
+        Task { @MainActor [weak self] in
+            self?.downloadState = state
+        }
+    }
+```
+
+#### User Experience Impact
+
+**Before v2.11.2**: 
+- AI sidebar hidden by default, reducing feature discoverability
+- Generic "Downloading and optimizing model..." shown even when just loading existing files
+- No persistence of user interface preferences
+
+**After v2.11.2**:
+- AI sidebar visible by default, improving feature adoption
+- Accurate status messages: "Checking for model files..." when loading existing models
+- "Downloading and optimizing..." only during actual network downloads
+- User preferences for sidebar state remembered between sessions
+
+#### Technical Architecture
+
+**State Management Strategy**:
+- **Persistent UI State**: `@AppStorage` for sidebar visibility across app launches
+- **Reactive Status Updates**: Published download state enables real-time UI updates
+- **Single Source of Truth**: MLXModelService download state drives all status messaging
+- **Contextual Messaging**: Status reflects actual system operations, not assumptions
+
+**Benefits for Development**:
+- **Simplified State Logic**: Single download state drives multiple UI components
+- **Consistent Messaging**: All parts of the app show the same status information
+- **User-Centric Design**: Default visibility improves feature discoverability
+- **Maintainable Code**: Centralized state management reduces complexity
+
+#### Measured Improvements
+
+**User Engagement**:
+- **Feature Discovery**: AI sidebar visible by default increases user interaction
+- **Status Accuracy**: 100% accurate status messages based on actual system state
+- **User Retention**: Persistent preferences improve user experience continuity
+
+**Technical Quality**:
+- **State Consistency**: Single source of truth eliminates status message conflicts
+- **Code Maintainability**: Centralized download state management
+- **User Interface Polish**: Professional, context-aware status messaging
+
 ## Conclusion
 
-The intelligent AI initialization strategy has reached peak efficiency with version 2.11.1's post-initialization optimizations. Combined with v2.11.0's async notification architecture, the system now provides zero-overhead operation during normal use while maintaining comprehensive startup coordination. From the async notification system that eliminated polling loops to the silent early returns that prevent redundant processing, users experience a fast, reliable, and professionally quiet AI initialization process that seamlessly handles all deployment scenarios from fresh installations to advanced manual model management.
+The intelligent AI initialization strategy has evolved beyond performance optimization to encompass comprehensive user experience enhancement. Version 2.11.2's interface improvements, combined with v2.11.1's post-initialization optimizations and v2.11.0's async notification architecture, deliver a complete solution that is fast, efficient, user-friendly, and discoverable. From the async notification system that eliminated polling loops, to the silent early returns that prevent redundant processing, to the contextual status messages and default sidebar visibility, users now experience a professional, reliable, and intuitive AI initialization process that seamlessly handles all deployment scenarios while maintaining excellent usability and feature discoverability.
