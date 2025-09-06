@@ -18,15 +18,26 @@ A privacy-first AI-powered macOS web browser with local AI capabilities and inte
 When you launch the browser for the first time:
 
 1. **AI Sidebar Automatically Opens** - The AI sidebar will be visible by default to help you get started
-2. **AI Model Download** - The app will automatically download and set up the local AI model (Gemma 2 2B, ~2GB)
-3. **Initialization** - Wait for the "AI Ready" status indicator to appear (usually 30-60 seconds)
+2. **Smart AI Detection** - The app automatically detects available AI providers:
+   - 🦙 **Ollama running** → Instant 2-second startup with any model
+   - 💻 **Apple Silicon** → Downloads MLX model (Gemma 2 2B, ~2GB) if no Ollama
+   - ☁️ **API Keys configured** → Uses cloud providers (OpenAI, Claude, Gemini)
+3. **Provider Display** - See which AI provider is active in the sidebar header
+4. **Ready Indicator** - Wait for the "AI Ready" status (2 seconds with Ollama, 30-60 seconds with MLX)
 
 ### System Requirements
 
+**For Built-in MLX AI:**
 - **macOS 14.0+** (macOS Sonoma or later)
-- **Apple Silicon (M1/M2/M3)** recommended for optimal AI performance
+- **Apple Silicon (M1/M2/M3)** required for MLX
 - **4GB+ available storage** for AI model files
 - **8GB+ RAM** recommended for smooth operation
+
+**For Ollama AI (Recommended):**
+- **macOS 10.15+** (any Mac)
+- **Ollama installed** from [ollama.ai](https://ollama.ai)
+- **2GB+ per model** (varies by model size)
+- **Works on Intel and Apple Silicon**
 
 ## AI Sidebar
 
@@ -53,16 +64,25 @@ Located in the top-left of the sidebar header:
 - **Green "AI Ready"** - Ready for use
 
 #### Provider Display
-The sidebar clearly shows which AI provider is active:
-- **Provider badge** - Clickable button showing provider name (Ollama, MLX, OpenAI, etc.)
-- **Model information bar** - Shows active model name and privacy/cost status
-- **Visual indicators** - Color-coded icons (🦙 Ollama = indigo, MLX = blue, OpenAI = green, etc.)
+The sidebar header clearly shows which AI provider and model is active:
 
-Click the provider badge to:
-- Switch between Local AI and cloud providers (Ollama, MLX, OpenAI, Anthropic, Gemini)  
-- Change AI models within the current provider
-- Access pricing information for cloud models
-- Open privacy settings
+**Header Badge:**
+- 🦙 **Ollama** (indigo) - Local Ollama service with server.rack icon
+- 💻 **MLX** (blue) - Built-in Apple Silicon AI with cpu icon  
+- 🧠 **OpenAI** (green) - Cloud API with brain.head.profile icon
+- 👤 **Claude** (orange) - Anthropic API with person.crop.circle.fill icon
+- 💎 **Gemini** (purple) - Google API with diamond.fill icon
+
+**Model Information Bar:**
+- **Model name** - Shows active model (llama3, gemma-2-2b, gpt-4, etc.)
+- **Privacy badge** - 🔒 "Private" for local providers, ☁️ "Cloud" for APIs
+- **Cost display** - Shows pricing per 1M tokens for paid services
+
+**Interactive Features:**
+- **Click badge** to open provider/model switcher dropdown
+- **Quick switching** between available providers and models
+- **Settings shortcut** for privacy and API key configuration
+- **Real-time updates** when providers change or models load
 
 #### TL;DR Card
 Automatically appears below the header when browsing:
