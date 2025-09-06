@@ -230,7 +230,7 @@ struct AISidebar: View {
                     }
                 } else if let model = provider.selectedModel, let pricing = model.pricing {
                     let inUSD = pricing.inputPerMTokensUSD ?? 0
-                    let outUSD = pricing.outputPerMTokensUSD ?? 0
+                    let _ = pricing.outputPerMTokensUSD ?? 0  // Available for future use
                     Text("$\(String(format: "%.2f", inUSD))/1M")
                         .font(.system(size: 9, weight: .medium))
                         .foregroundColor(.secondary)
@@ -1151,6 +1151,59 @@ struct AISidebar: View {
         }
         AppLog.debug("Conversation cleared via UI")
     }
+    
+    // MARK: - Provider Helper Methods
+    
+    private func providerIcon(for provider: AIProvider) -> String {
+        switch provider.providerId {
+        case "local_mlx":
+            return "cpu"
+        case "ollama":
+            return "server.rack"
+        case "openai":
+            return "brain.head.profile"
+        case "anthropic":
+            return "person.crop.circle.fill"
+        case "google_gemini":
+            return "diamond.fill"
+        default:
+            return "sparkles"
+        }
+    }
+    
+    private func providerColor(for provider: AIProvider) -> Color {
+        switch provider.providerId {
+        case "local_mlx":
+            return .blue
+        case "ollama":
+            return .indigo
+        case "openai":
+            return .green
+        case "anthropic":
+            return .orange
+        case "google_gemini":
+            return .purple
+        default:
+            return .gray
+        }
+    }
+    
+    private func abbreviatedProviderName(for provider: AIProvider) -> String {
+        switch provider.providerId {
+        case "local_mlx":
+            return "MLX"
+        case "ollama":
+            return "Ollama"
+        case "openai":
+            return "OpenAI"
+        case "anthropic":
+            return "Claude"
+        case "google_gemini":
+            return "Gemini"
+        default:
+            return provider.displayName
+        }
+    }
 
 }
 
@@ -1283,59 +1336,6 @@ struct AIStatusIndicator: View {
             return .green
         } else {
             return .orange
-        }
-    }
-    
-    // MARK: - Provider Helper Methods
-    
-    private func providerIcon(for provider: AIProvider) -> String {
-        switch provider.providerId {
-        case "local_mlx":
-            return "cpu"
-        case "ollama":
-            return "server.rack"
-        case "openai":
-            return "brain.head.profile"
-        case "anthropic":
-            return "person.crop.circle.fill"
-        case "google_gemini":
-            return "diamond.fill"
-        default:
-            return "sparkles"
-        }
-    }
-    
-    private func providerColor(for provider: AIProvider) -> Color {
-        switch provider.providerId {
-        case "local_mlx":
-            return .blue
-        case "ollama":
-            return .indigo
-        case "openai":
-            return .green
-        case "anthropic":
-            return .orange
-        case "google_gemini":
-            return .purple
-        default:
-            return .gray
-        }
-    }
-    
-    private func abbreviatedProviderName(for provider: AIProvider) -> String {
-        switch provider.providerId {
-        case "local_mlx":
-            return "MLX"
-        case "ollama":
-            return "Ollama"
-        case "openai":
-            return "OpenAI"
-        case "anthropic":
-            return "Claude"
-        case "google_gemini":
-            return "Gemini"
-        default:
-            return provider.displayName
         }
     }
 }
