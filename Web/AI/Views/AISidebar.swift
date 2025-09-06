@@ -165,6 +165,9 @@ struct AISidebar: View {
         VStack(spacing: 0) {
             // Header with AI status
             sidebarHeader()
+            
+            // Provider/Model info bar
+            providerInfoBar()
 
             // TL;DR Component – progressive disclosure (absorbs page context)
             TLDRCard(tabManager: tabManager, aiAssistant: aiAssistant)
@@ -196,6 +199,62 @@ struct AISidebar: View {
     }
 
     // MARK: - Header
+
+    @ViewBuilder 
+    private func providerInfoBar() -> some View {
+        if let provider = providerManager.currentProvider, aiAssistant.isInitialized {
+            HStack(spacing: 8) {
+                // Model name (if available)
+                if let model = provider.selectedModel {
+                    Text(model.name)
+                        .font(.system(size: 10, weight: .medium))
+                        .foregroundColor(.primary)
+                        .lineLimit(1)
+                } else {
+                    Text("Default Model")
+                        .font(.system(size: 10, weight: .medium))
+                        .foregroundColor(.secondary)
+                }
+                
+                Spacer()
+                
+                // Cost indicator or "Free" for local providers
+                if provider.providerType == .local {
+                    HStack(spacing: 3) {
+                        Image(systemName: "lock.shield")
+                            .font(.system(size: 9))
+                            .foregroundColor(.green)
+                        Text("Private")
+                            .font(.system(size: 9, weight: .medium))
+                            .foregroundColor(.green)
+                    }
+                } else if let model = provider.selectedModel, let pricing = model.pricing {
+                    let inUSD = pricing.inputPerMTokensUSD ?? 0
+                    let outUSD = pricing.outputPerMTokensUSD ?? 0
+                    Text("$\(String(format: "%.2f", inUSD))/1M")
+                        .font(.system(size: 9, weight: .medium))
+                        .foregroundColor(.secondary)
+                } else {
+                    HStack(spacing: 3) {
+                        Image(systemName: "cloud")
+                            .font(.system(size: 9))
+                            .foregroundColor(.blue)
+                        Text("Cloud")
+                            .font(.system(size: 9, weight: .medium))
+                            .foregroundColor(.blue)
+                    }
+                }
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 6)
+            .background(
+                RoundedRectangle(cornerRadius: 6)
+                    .fill(.ultraThinMaterial.opacity(0.3))
+            )
+            .padding(.horizontal, 4)
+            .padding(.bottom, 8)
+        }
+    }
 
     @ViewBuilder
     private func contextStatusView() -> some View {
@@ -255,7 +314,7 @@ struct AISidebar: View {
 
             Spacer()
 
-            // Provider / Model quick chip (progressive disclosure)
+            // Provider display with dropdown menu
             if let provider = providerManager.currentProvider {
                 Menu {
                     // Provider switcher
@@ -267,7 +326,7 @@ struct AISidebar: View {
                             }) {
                                 Label(
                                     p.displayName,
-                                    systemImage: p.providerType == .local ? "lock.fill" : "network")
+                                    systemImage: providerIcon(for: p))
                             }
                         }
                     }
@@ -307,19 +366,34 @@ struct AISidebar: View {
                         }
                     }
                 } label: {
-                    // Icon-only to reduce truncation in header
-                    HStack(spacing: 4) {
-                        Image(systemName: provider.providerType == .local ? "lock.shield" : "cloud")
-                            .foregroundColor(.secondary)
-                        Image(systemName: "chevron.down")
+                    // Provider name and icon display
+                    HStack(spacing: 6) {
+                        // Provider icon with color
+                        Image(systemName: providerIcon(for: provider))
                             .font(.system(size: 11, weight: .medium))
+                            .foregroundColor(providerColor(for: provider))
+                        
+                        // Provider name (abbreviated for space)
+                        Text(abbreviatedProviderName(for: provider))
+                            .font(.system(size: 11, weight: .medium))
+                            .foregroundColor(.primary)
+                            .lineLimit(1)
+                        
+                        // Dropdown indicator
+                        Image(systemName: "chevron.down")
+                            .font(.system(size: 9, weight: .medium))
                             .foregroundColor(.secondary)
                     }
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(
+                        RoundedRectangle(cornerRadius: 6)
+                            .fill(.ultraThinMaterial.opacity(0.5))
+                    )
                 }
                 .menuStyle(.borderlessButton)
-                .fixedSize()
                 .help(
-                    "Switch provider/model\nSelected: \(provider.selectedModel?.name ?? provider.displayName)"
+                    "Switch provider/model\nActive: \(provider.displayName)\nModel: \(provider.selectedModel?.name ?? "Default")"
                 )
             }
 
@@ -1209,6 +1283,59 @@ struct AIStatusIndicator: View {
             return .green
         } else {
             return .orange
+        }
+    }
+    
+    // MARK: - Provider Helper Methods
+    
+    private func providerIcon(for provider: AIProvider) -> String {
+        switch provider.providerId {
+        case "local_mlx":
+            return "cpu"
+        case "ollama":
+            return "server.rack"
+        case "openai":
+            return "brain.head.profile"
+        case "anthropic":
+            return "person.crop.circle.fill"
+        case "google_gemini":
+            return "diamond.fill"
+        default:
+            return "sparkles"
+        }
+    }
+    
+    private func providerColor(for provider: AIProvider) -> Color {
+        switch provider.providerId {
+        case "local_mlx":
+            return .blue
+        case "ollama":
+            return .indigo
+        case "openai":
+            return .green
+        case "anthropic":
+            return .orange
+        case "google_gemini":
+            return .purple
+        default:
+            return .gray
+        }
+    }
+    
+    private func abbreviatedProviderName(for provider: AIProvider) -> String {
+        switch provider.providerId {
+        case "local_mlx":
+            return "MLX"
+        case "ollama":
+            return "Ollama"
+        case "openai":
+            return "OpenAI"
+        case "anthropic":
+            return "Claude"
+        case "google_gemini":
+            return "Gemini"
+        default:
+            return provider.displayName
         }
     }
 }

@@ -228,8 +228,11 @@ class AIProviderManager: ObservableObject {
 
     /// Register all available providers
     private func loadAvailableProviders() {
-        // Local MLX provider is always available
+        // Local MLX provider is always available on Apple Silicon
         availableProviders.append(LocalMLXProvider())
+        
+        // Ollama provider is always available (local service)
+        availableProviders.append(OllamaProvider())
 
         // External providers available if API keys exist
         for providerType in SecureKeyStorage.AIProvider.allCases {
@@ -245,17 +248,88 @@ class AIProviderManager: ObservableObject {
             }
         }
 
-        // Set default provider
+        // Set default provider with smart initialization logic
+        Task {
+            await setDefaultProviderWithSmartInit()
+        }
+    }
+    
+    /// Smart provider selection that prioritizes Ollama if running, otherwise falls back to saved/default
+    @MainActor
+    private func setDefaultProviderWithSmartInit() async {
+        // Check if user has an explicitly saved provider preference first
         if let savedProviderId = userDefaults.string(forKey: "selectedAIProvider"),
-            let provider = availableProviders.first(where: { $0.providerId == savedProviderId })
+           let savedProvider = availableProviders.first(where: { $0.providerId == savedProviderId })
         {
-            currentProvider = provider
-        } else if let external = availableProviders.first(where: { $0.providerType == .external }) {
-            // Prefer an external provider by default when a key exists (BYOK)
+            // If it's Ollama, check if it's running before using it
+            if savedProviderId == "ollama" {
+                if await isOllamaAvailable() {
+                    currentProvider = savedProvider
+                    AppLog.debug("🦙 Using saved Ollama provider (running)")
+                    return
+                } else {
+                    AppLog.debug("🦙 Saved Ollama provider not running, trying alternatives")
+                }
+            } else {
+                // For non-Ollama saved providers, use them directly
+                currentProvider = savedProvider
+                AppLog.debug("Using saved provider: \(savedProvider.displayName)")
+                return
+            }
+        }
+        
+        // Smart initialization: Check if Ollama is running and prefer it
+        if await isOllamaAvailable(),
+           let ollamaProvider = availableProviders.first(where: { $0.providerId == "ollama" })
+        {
+            currentProvider = ollamaProvider
+            AppLog.debug("🦙 Auto-selected Ollama (detected running)")
+            return
+        }
+        
+        // Fallback logic: prefer external providers with API keys
+        if let external = availableProviders.first(where: { $0.providerType == .external }) {
             currentProvider = external
+            AppLog.debug("Using external provider with API key: \(external.displayName)")
         } else {
-            // Fallback to local MLX provider
+            // Final fallback to local MLX provider
             currentProvider = availableProviders.first { $0.providerType == .local }
+            AppLog.debug("Fallback to local MLX provider")
+        }
+    }
+    
+    /// Quick check if Ollama service is running without full initialization
+    private func isOllamaAvailable() async -> Bool {
+        do {
+            let host = UserDefaults.standard.string(forKey: "ollamaHost") ?? "127.0.0.1"
+            let port = UserDefaults.standard.integer(forKey: "ollamaPort")
+            let portToUse = port > 0 ? port : 11434
+            let baseURL = URL(string: "http://\(host):\(portToUse)")!
+            
+            let url = baseURL.appendingPathComponent("api/tags")
+            var request = URLRequest(url: url)
+            request.timeoutInterval = 3.0 // Quick timeout for startup check
+            
+            let config = URLSessionConfiguration.default
+            config.timeoutIntervalForRequest = 3.0
+            let session = URLSession(configuration: config)
+            
+            let (_, response) = try await session.data(for: request)
+            
+            if let httpResponse = response as? HTTPURLResponse {
+                let isAvailable = httpResponse.statusCode == 200
+                if isAvailable {
+                    AppLog.debug("🦙 Ollama detected at \(baseURL.absoluteString)")
+                } else {
+                    AppLog.debug("🦙 Ollama responded but not ready (HTTP \(httpResponse.statusCode))")
+                }
+                return isAvailable
+            }
+            return false
+            
+        } catch {
+            // Silently fail - this is just a startup optimization check
+            return false
         }
     }
 

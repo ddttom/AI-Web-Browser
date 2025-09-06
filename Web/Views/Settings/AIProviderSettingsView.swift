@@ -606,6 +606,8 @@ struct AIProviderSettingsView: View {
         switch provider.providerId {
         case "local_mlx":
             return "cpu"
+        case "ollama":
+            return "server.rack"
         case "openai":
             return "brain.head.profile"
         case "anthropic":
@@ -623,6 +625,8 @@ struct AIProviderSettingsView: View {
         switch provider.providerId {
         case "local_mlx":
             return .blue
+        case "ollama":
+            return .indigo
         case "openai":
             return .green
         case "anthropic":
@@ -659,11 +663,18 @@ struct AIProviderSettingsView: View {
     private func providerTypeDescription(for provider: AIProvider?) -> String {
         guard let provider = provider else { return "No provider selected" }
 
-        switch provider.providerType {
-        case .local:
-            return "Private, runs locally on your Mac"
-        case .external:
-            return "Cloud-based API service"
+        switch provider.providerId {
+        case "local_mlx":
+            return "MLX framework, Apple Silicon optimized"
+        case "ollama":
+            return "Local Ollama service, runs any model"
+        default:
+            switch provider.providerType {
+            case .local:
+                return "Private, runs locally on your Mac"
+            case .external:
+                return "Cloud-based API service"
+            }
         }
     }
 
