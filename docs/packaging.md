@@ -100,16 +100,29 @@ The packaged app includes all necessary components:
 
 ## Distribution Methods
 
+### GitHub Releases (Recommended)
+
+**Quick Release (for existing packages):**
+```bash
+npm run release:quick
+```
+- Uses existing ZIP file
+- Creates Git tag and GitHub release
+- Immediate public availability
+
+**Full Release (build + release):**
+```bash
+npm run release:github v1.0.0
+```
+- Builds fresh package
+- Creates complete GitHub release
+- Professional release notes
+
 ### Direct Distribution
 1. Share the ZIP file with users
 2. Users download and extract
 3. Drag Web.app to Applications folder
 4. Launch from Applications or Spotlight
-
-### GitHub Releases
-1. Create GitHub release
-2. Upload the ZIP file as release asset
-3. Users download from releases page
 
 ### Website Distribution
 1. Host ZIP file on web server

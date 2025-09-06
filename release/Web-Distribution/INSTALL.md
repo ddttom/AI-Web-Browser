@@ -39,5 +39,5 @@ The browser includes local AI capabilities:
 
 ## Version Information
 - Version: 0.0.4
-- Build Date: Sat Sep  6 16:38:51 BST 2025
+- Build Date: Sat Sep  6 16:55:47 BST 2025
 - Platform: macOS (Universal)

@@ -17,6 +17,7 @@
     "release": "npm run clean && npm run build",
     "release:package": "./scripts/build-release.sh",
     "release:github": "./scripts/create-release.sh",
+    "release:quick": "./scripts/quick-release.sh",
     "kill-builds": "pkill -f xcodebuild || true"
   },
   "engines": {

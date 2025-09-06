@@ -1,8 +1,11 @@
 # Web - macOS AI Browser
 
+![Release URL:](https://github.com/ddttom/Web/releases/tag/v0.0.4)
+
+
 Built natively with SwiftUI to delivers a minimal, progressive browsing experience with integrated AI capabilities.
 
-<img width="4694" height="2379" alt="image" src="https://github.com/user-attachments/assets/b54a2937-09d5-480a-9ca6-eae7967af30c" />
+<img width="800" height="400" alt="image" src="https://github.com/user-attachments/assets/b54a2937-09d5-480a-9ca6-eae7967af30c" />
 
 ![Web Browser](https://img.shields.io/badge/platform-macOS-blue.svg)
 ![Swift](https://img.shields.io/badge/Swift-6-orange.svg)
@@ -664,6 +667,7 @@ The project includes npm scripts for convenient command-line building:
 | `npm run archive` | Create archive for distribution | App Store submission |
 | `npm run release:package` | Create distributable .app bundle package | End-user distribution |
 | `npm run release:github` | Create GitHub release with packaged app | Public release distribution |
+| `npm run release:quick` | Create GitHub release from existing package | Quick release from built package |
 | `npm run run` | Build debug and launch app | Quick development cycle |
 | `npm run dev` | Alias for debug build | Development workflow |
 | `npm run release` | Clean and build release | Final release preparation |
@@ -723,6 +727,9 @@ For detailed information about the packaging process, validation, and troublesho
 Create and publish GitHub releases automatically:
 
 ```bash
+# Quick release from existing package (recommended)
+npm run release:quick
+
 # Create a GitHub release (interactive)
 npm run release:github
 

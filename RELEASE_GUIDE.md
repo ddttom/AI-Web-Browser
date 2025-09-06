@@ -17,7 +17,23 @@ This is a step-by-step guide to create your first GitHub release for the Web bro
 
 ## Creating Your First Release
 
-### Option 1: Automated Release (Recommended)
+### Option 1: Quick Release (Easiest)
+
+If you already have a package built (like your current v0.0.4):
+
+```bash
+# Create GitHub release from existing package
+npm run release:quick
+```
+
+This will:
+- ✅ Use your existing ZIP file
+- ✅ Create a Git tag
+- ✅ Generate release notes
+- ✅ Upload to GitHub releases
+- ✅ Make it available for download
+
+### Option 2: Full Automated Release
 
 ```bash
 # Create a release (will prompt for version)

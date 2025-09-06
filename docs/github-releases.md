@@ -13,7 +13,23 @@ GitHub Releases allow you to:
 
 ## Quick Start
 
-### Method 1: Manual Release (Recommended for first release)
+### Method 1: Quick Release (Easiest - for existing packages)
+
+If you already have a built package (like after running `npm run release:package`):
+
+```bash
+npm run release:quick
+```
+
+This automatically:
+- Detects your existing ZIP file (e.g., `Web-v0.0.4-macOS.zip`)
+- Creates and pushes a Git tag
+- Generates professional release notes
+- Uploads to GitHub releases
+- Makes it immediately available for download
+
+### Method 2: Manual Release (Recommended for first-time setup)</search>
+</search_and_replace>
 
 1. **Create the package**:
    ```bash

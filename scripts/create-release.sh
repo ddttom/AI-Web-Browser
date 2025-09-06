@@ -274,8 +274,18 @@ main() {
     # Verify the ZIP file exists
     local zip_file="release/Web-${VERSION}-macOS.zip"
     if [ ! -f "$zip_file" ]; then
-        log_error "ZIP file not found: $zip_file"
-        exit 1
+        # Check if there's a ZIP file with the current package version
+        local package_version=$(get_current_version)
+        local package_zip="release/Web-v${package_version}-macOS.zip"
+        if [ -f "$package_zip" ]; then
+            log_warning "ZIP file found with package version: $package_zip"
+            log_info "Renaming to match release version: $zip_file"
+            mv "$package_zip" "$zip_file"
+        else
+            log_error "ZIP file not found: $zip_file"
+            log_error "Also checked: $package_zip"
+            exit 1
+        fi
     fi
     
     local zip_size=$(du -h "$zip_file" | cut -f1)
