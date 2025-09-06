@@ -1,0 +1,5 @@
+Web Browser v0.0.4
+Build Date: Sat Sep  6 16:38:51 BST 2025
+Build Host: toms-MacBook-Pro-4617.local
+Git Commit: 77472e1
+Xcode Version: Xcode 16.4

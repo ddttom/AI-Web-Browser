@@ -60,6 +60,17 @@ https://github.com/user-attachments/assets/85629abc-5527-4345-b1a8-a988e0417c0a
 
 ## Installation
 
+### Pre-built Release (Recommended)
+
+Download the latest release from the [releases page](https://github.com/ddttom/Web/releases):
+
+1. Download `Web-v[version]-macOS.zip`
+2. Unzip the archive
+3. Drag `Web.app` to your Applications folder
+4. Launch from Applications or Spotlight
+
+For detailed installation instructions, see the included `INSTALL.md` file.
+
 ### From Source
 
 1. Clone the repository:
@@ -84,6 +95,9 @@ npm run test
 
 # Build and run debug version
 npm run run
+
+# Create distributable release package
+npm run release:package
 ```
 
 3. **Option B: Using Xcode**
@@ -648,6 +662,8 @@ The project includes npm scripts for convenient command-line building:
 | `npm run clean:all` | Remove all build files and clean | Fix build issues |
 | `npm run test` | Run unit tests | Continuous integration |
 | `npm run archive` | Create archive for distribution | App Store submission |
+| `npm run release:package` | Create distributable .app bundle package | End-user distribution |
+| `npm run release:github` | Create GitHub release with packaged app | Public release distribution |
 | `npm run run` | Build debug and launch app | Quick development cycle |
 | `npm run dev` | Alias for debug build | Development workflow |
 | `npm run release` | Clean and build release | Final release preparation |
@@ -664,6 +680,74 @@ The project includes npm scripts for convenient command-line building:
 - **Debug builds**: `./build/DerivedData/Build/Products/Debug/Web.app`
 - **Release builds**: `./build/DerivedData/Build/Products/Release/Web.app`
 - **Archives**: `./build/Web.xcarchive`
+- **Distribution packages**: `./release/Web-Distribution/` (folder with app and docs)
+- **Distribution archives**: `./release/Web-v[version]-macOS.zip` (compressed for sharing)
+
+### Release Packaging
+
+The project includes an automated release packaging system for creating professional distribution packages:
+
+```bash
+npm run release:package
+```
+
+**What it does:**
+1. **Clean Build**: Removes previous builds and creates a fresh release build
+2. **App Validation**: Verifies the app bundle structure, executable, and Info.plist
+3. **Distribution Package**: Creates a complete distribution folder containing:
+   - `Web.app` - The complete application bundle (61MB)
+   - `INSTALL.md` - Detailed installation instructions with troubleshooting
+   - `README.md` - Distribution overview and quick start guide
+   - `LICENSE` - Software license
+   - `VERSION.txt` - Build information and version details
+4. **ZIP Archive**: Creates a compressed archive for easy distribution (14.5MB)
+
+**Output Structure:**
+```
+release/
+├── Web-Distribution/           # Complete distribution folder
+│   ├── Web.app                # Main application bundle
+│   ├── INSTALL.md             # Installation guide
+│   ├── README.md              # Distribution overview
+│   ├── LICENSE                # Software license
+│   └── VERSION.txt            # Version information
+└── Web-v[version]-macOS.zip   # Compressed distribution archive
+```
+
+The resulting package is ready for end-user distribution. Users simply download the ZIP file, extract it, and drag the app to their Applications folder.
+
+For detailed information about the packaging process, validation, and troubleshooting, see [docs/packaging.md](docs/packaging.md).
+
+### GitHub Releases
+
+Create and publish GitHub releases automatically:
+
+```bash
+# Create a GitHub release (interactive)
+npm run release:github
+
+# Create a specific version release
+npm run release:github v1.0.0
+
+# Create a draft release
+npm run release:github v1.0.0 --draft
+
+# Create a pre-release
+npm run release:github v1.0.0-beta --prerelease
+```
+
+**Prerequisites:**
+- Install GitHub CLI: `brew install gh`
+- Authenticate: `gh auth login`
+
+**What it does:**
+1. Creates and validates the distribution package
+2. Creates a Git tag for the version
+3. Generates professional release notes
+4. Uploads the ZIP file to GitHub releases
+5. Publishes the release for public download
+
+For detailed GitHub release setup and management, see [docs/github-releases.md](docs/github-releases.md).
 
 ### Build Dependencies
 
