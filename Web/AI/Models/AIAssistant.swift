@@ -106,8 +106,16 @@ class AIAssistant: ObservableObject {
                 throw AIError.inferenceError("No AI provider available")
             }
 
-            if provider.providerType == .local {
-                // Preserve existing detailed MLX initialization for local models
+            // Branch initialization by provider type and ID
+            switch provider.providerId {
+            case "ollama":
+                // Fast Ollama initialization - skip heavy MLX setup
+                await updateStatus("Connecting to Ollama...")
+                try await provider.initialize()
+                AppLog.debug("🦙 [AI-ASSISTANT] Fast Ollama initialization completed")
+                
+            case "local_mlx":
+                // Detailed MLX initialization for local models
                 await updateStatus("Validating hardware compatibility...")
                 try validateHardware()
 
@@ -130,7 +138,7 @@ class AIAssistant: ObservableObject {
                     }
                 }
 
-                // Initialize frameworks and services required for local
+                // Initialize frameworks and services required for MLX
                 await withTaskGroup(of: Void.self) { group in
                     if aiConfiguration.framework == .mlx {
                         group.addTask { [weak self] in
@@ -158,7 +166,8 @@ class AIAssistant: ObservableObject {
 
                 await updateStatus("Starting AI inference engine...")
                 try await gemmaService.initialize()
-            } else {
+                
+            default:
                 // External provider (BYOK): let provider handle its own initialization
                 await updateStatus("Initializing \(provider.displayName)...")
                 try await provider.initialize()

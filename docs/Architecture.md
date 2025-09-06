@@ -2,7 +2,7 @@
 
 ## Overview
 
-The AI Web Browser is a native macOS application built with SwiftUI that combines traditional web browsing capabilities with advanced AI integration. The application follows MVVM (Model-View-ViewModel) architecture patterns and emphasizes privacy-first AI processing through local inference using Apple's MLX framework.
+The AI Web Browser is a native macOS application built with SwiftUI that combines traditional web browsing capabilities with advanced AI integration. The application follows MVVM (Model-View-ViewModel) architecture patterns and emphasizes privacy-first AI processing through multiple local inference options: Ollama for maximum flexibility, Apple's MLX framework for Apple Silicon optimization, and cloud providers for extended capabilities.
 
 ## High-Level Architecture
 
@@ -15,8 +15,16 @@ graph TB
     S --> WK[WebKit Engine]
     S --> SEC[Security Layer]
     
-    AI --> MLX[MLX Framework]
-    AI --> CLOUD[Cloud Providers]
+    AI --> PROV[AIProviderManager]
+    PROV --> OLLAMA[Ollama Provider]
+    PROV --> MLX[MLX Provider]
+    PROV --> CLOUD[Cloud Providers]
+    
+    OLLAMA --> HTTP[HTTP API]
+    MLX --> MLXFW[MLX Framework]
+    CLOUD --> OPENAI[OpenAI]
+    CLOUD --> ANTHROPIC[Anthropic]
+    CLOUD --> GEMINI[Google Gemini]
     
     SEC --> PRIV[Privacy Manager]
     SEC --> AUTH[Authentication]
@@ -26,10 +34,11 @@ graph TB
 ## Core Architecture Principles
 
 ### 1. **Privacy-First Design**
-- Local AI processing using Apple MLX framework
-- Minimal data collection and transmission
-- Secure credential storage using Keychain
-- Comprehensive privacy controls
+- **Local AI priority**: Ollama and MLX providers process data locally
+- **Smart provider selection**: Automatically prefers local over cloud providers
+- **Secure credential storage**: API keys protected by macOS Keychain with biometric auth
+- **Context sharing controls**: Granular privacy settings for webpage context
+- **No telemetry**: Zero data collection without explicit user consent
 
 ### 2. **Modular Service Architecture**
 - Loosely coupled services for different functionalities
@@ -56,6 +65,40 @@ graph TB
 - Safe browsing integration
 - Content Security Policy (CSP) enforcement
 - Certificate validation and management
+
+## Smart AI Provider System
+
+### **Intelligent Provider Selection**
+The browser automatically detects and selects the optimal AI provider on startup:
+
+```swift
+// Provider priority hierarchy (fastest to slowest)
+1. Ollama (if running)     → ~2 second startup
+2. Cloud APIs (if keys)    → ~5 second startup  
+3. MLX (Apple Silicon)     → ~30-60 second startup
+```
+
+### **Provider Detection Flow**
+```mermaid
+graph TD
+    START[App Launch] --> CHECK[Check Saved Provider]
+    CHECK --> OLLAMA_SAVED{Saved: Ollama?}
+    OLLAMA_SAVED -->|Yes| OLLAMA_TEST[Test Ollama Connection]
+    OLLAMA_SAVED -->|No| USE_SAVED[Use Saved Provider]
+    OLLAMA_TEST -->|Running| OLLAMA_USE[✅ Use Ollama]
+    OLLAMA_TEST -->|Not Running| TRY_ALT[Try Alternatives]
+    TRY_ALT --> DETECT_OLLAMA[Detect Ollama Running]
+    DETECT_OLLAMA -->|Found| OLLAMA_USE
+    DETECT_OLLAMA -->|Not Found| CLOUD_CHECK[Check API Keys]
+    CLOUD_CHECK -->|Found| CLOUD_USE[Use Cloud Provider]
+    CLOUD_CHECK -->|None| MLX_FALLBACK[Fallback to MLX]
+```
+
+### **Provider Lifecycle Management**
+- **Lazy initialization**: Providers only initialize when selected
+- **Smart switching**: Context-aware provider changes
+- **Resource cleanup**: Proper disposal when switching providers
+- **State persistence**: Remember user's preferred provider
 
 ## Directory Structure
 
@@ -98,11 +141,19 @@ ToolRegistry.swift      // Available tools management
 ```
 
 #### AI Service Providers
-- **LocalMLXProvider**: On-device inference using Apple MLX
-- **OpenAIProvider**: OpenAI API integration
-- **AnthropicProvider**: Claude API integration  
-- **GeminiProvider**: Google Gemini API integration
-- **GemmaService**: Local Gemma model support
+- **OllamaProvider**: Local Ollama service integration with HTTP API
+- **LocalMLXProvider**: On-device inference using Apple MLX framework
+- **OpenAIProvider**: OpenAI API integration (GPT models)
+- **AnthropicProvider**: Claude API integration (Claude 3 family)
+- **GeminiProvider**: Google Gemini API integration (Gemini Pro)
+- **GemmaService**: Deprecated - replaced by Ollama and MLX providers
+
+#### Provider Management
+```swift
+AIProviderManager.swift     // Unified provider management with smart initialization
+AIProvider.swift           // Protocol definition and base classes
+SecureKeyStorage.swift     // Keychain-based API key storage
+```
 
 #### MLX Integration
 ```swift

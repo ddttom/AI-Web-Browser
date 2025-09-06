@@ -10,7 +10,7 @@ Built natively with SwiftUI to delivers a minimal, progressive browsing experien
 
 *_Note: This is an experimental early access version, as AI models improve so will Web._*
 
-*_Note 2: The AI features require an Apple M chip._* or BYOK to use AI providers like OpenAI, Anthropic and Gemini
+*_Note 2: AI works on any Mac with Ollama, Apple Silicon for MLX, or BYOK for cloud providers (OpenAI, Anthropic, Gemini)._*
 
 *_Note 3: The current version is meant to experiment, play around and give feedback to gear development. It's missing key features as a browser._*
 
@@ -19,7 +19,7 @@ Built natively with SwiftUI to delivers a minimal, progressive browsing experien
 
 https://github.com/user-attachments/assets/e16842f8-fc2a-4984-91ee-9b012bd792f5
 
-NEW: AI Agents and BYOK AI cloud providers (OpenAI, Anthropic, Gemini)
+NEW: Smart AI provider system with Ollama support, AI Agents, and BYOK cloud providers (OpenAI, Anthropic, Gemini)
 
 https://github.com/user-attachments/assets/85629abc-5527-4345-b1a8-a988e0417c0a
 
@@ -37,21 +37,26 @@ https://github.com/user-attachments/assets/85629abc-5527-4345-b1a8-a988e0417c0a
 - **Privacy Settings**: Granular privacy controls (Need to test)
 
 ### AI Integration
-- **Local AI Models**: On-device AI powered by [Apple MLX](https://github.com/ml-explore/mlx) and [MLX Swift Examples](https://github.com/ml-explore/mlx-swift-examples)
-- **MLX Framework**: Apple Silicon optimized inference
-- **Privacy-First**: AI processing happens locally on device
-- **Smart Initialization**: Intelligent startup that recognizes existing downloads and avoids conflicts
-- **Manual Download Support**: Seamless coordination with manual download processes
-- **Performance Optimized**: Clean production startup with essential-only logging, optimized auto-read thresholds, debounced AI readiness checks, reduced log noise, and comprehensive debug mode for development
-- **Swift 6 Compliant**: Full concurrency support with proper MainActor isolation and Sendable compliance
-- **Smart Assistance**: Integrated AI sidebar visible by default for web content analysis with TL;DR and page + history context, featuring contextual status messages and persistent visibility preferences
+- **🦙 Ollama Support**: Use any Ollama model locally (llama3, gemma, mistral, codellama, etc.)
+- **💻 MLX Framework**: Apple Silicon optimized inference with [Apple MLX](https://github.com/ml-explore/mlx)
+- **☁️ Cloud Providers**: BYOK support for OpenAI, Anthropic (Claude), and Google (Gemini)
+- **🚀 Smart Startup**: Auto-detects Ollama (2s) → Cloud APIs (5s) → MLX (30-60s) for optimal performance
+- **🔒 Privacy-First**: Prioritizes local processing, granular context sharing controls
+- **🎯 Provider Display**: Always-visible provider and model information in AI sidebar
+- **⚡ Performance**: Swift 6 compliant with async/await coordination and intelligent caching
+- **🤖 AI Agents**: Automated web interactions with tool registry and permission system
 
 ## Requirements
 
+### For Browser
 - macOS 14.0 or later
-- Apple Silicon Mac (for AI features)
 - Xcode 15.0+ (for development)
 - Node.js 16.0+ (for npm build scripts)
+
+### For AI Features
+- **🦙 Ollama** (Recommended): Any Mac with [Ollama](https://ollama.ai) installed
+- **💻 MLX**: Apple Silicon Mac (M1/M2/M3) for on-device inference
+- **☁️ Cloud**: BYOK (Bring Your Own Key) for OpenAI, Anthropic, or Gemini APIs
 
 ## Installation
 
@@ -104,6 +109,29 @@ open Web.xcodeproj
    ```bash
    ./scripts/convert_gemma.sh
    ```
+
+### Quick Start with Ollama (Recommended)
+
+For the fastest AI experience, set up Ollama:
+
+```bash
+# 1. Install Ollama
+curl -fsSL https://ollama.ai/install.sh | sh
+
+# 2. Start Ollama service
+ollama serve
+
+# 3. Download a model (in another terminal)
+ollama pull llama3        # General purpose (4.7GB)
+# OR
+ollama pull gemma:2b      # Smaller, faster (1.4GB)  
+# OR
+ollama pull codellama     # Code-focused (3.8GB)
+
+# 4. Launch Web browser - it will auto-detect and use Ollama!
+```
+
+The browser will automatically detect Ollama running and use it for instant 2-second startup instead of the slower 30-60 second MLX initialization.
 
 ## Architecture
 

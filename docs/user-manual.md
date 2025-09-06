@@ -18,15 +18,26 @@ A privacy-first AI-powered macOS web browser with local AI capabilities and inte
 When you launch the browser for the first time:
 
 1. **AI Sidebar Automatically Opens** - The AI sidebar will be visible by default to help you get started
-2. **AI Model Download** - The app will automatically download and set up the local AI model (Gemma 2 2B, ~2GB)
-3. **Initialization** - Wait for the "AI Ready" status indicator to appear (usually 30-60 seconds)
+2. **Smart AI Detection** - The app automatically detects available AI providers:
+   - 🦙 **Ollama running** → Instant 2-second startup with any model
+   - 💻 **Apple Silicon** → Downloads MLX model (Gemma 2 2B, ~2GB) if no Ollama
+   - ☁️ **API Keys configured** → Uses cloud providers (OpenAI, Claude, Gemini)
+3. **Provider Display** - See which AI provider is active in the sidebar header
+4. **Ready Indicator** - Wait for the "AI Ready" status (2 seconds with Ollama, 30-60 seconds with MLX)
 
 ### System Requirements
 
+**For Built-in MLX AI:**
 - **macOS 14.0+** (macOS Sonoma or later)
-- **Apple Silicon (M1/M2/M3)** recommended for optimal AI performance
+- **Apple Silicon (M1/M2/M3)** required for MLX
 - **4GB+ available storage** for AI model files
 - **8GB+ RAM** recommended for smooth operation
+
+**For Ollama AI (Recommended):**
+- **macOS 10.15+** (any Mac)
+- **Ollama installed** from [ollama.ai](https://ollama.ai)
+- **2GB+ per model** (varies by model size)
+- **Works on Intel and Apple Silicon**
 
 ## AI Sidebar
 
@@ -52,12 +63,26 @@ Located in the top-left of the sidebar header:
 - **Blue "Thinking..."** with spinning animation - AI is processing
 - **Green "AI Ready"** - Ready for use
 
-#### Provider/Model Selector
-Click the provider chip in the header to:
-- Switch between Local AI and cloud providers (OpenAI, Anthropic, Gemini)
-- Change AI models within the current provider
-- Access pricing information for cloud models
-- Open privacy settings
+#### Provider Display
+The sidebar header clearly shows which AI provider and model is active:
+
+**Header Badge:**
+- 🦙 **Ollama** (indigo) - Local Ollama service with server.rack icon
+- 💻 **MLX** (blue) - Built-in Apple Silicon AI with cpu icon  
+- 🧠 **OpenAI** (green) - Cloud API with brain.head.profile icon
+- 👤 **Claude** (orange) - Anthropic API with person.crop.circle.fill icon
+- 💎 **Gemini** (purple) - Google API with diamond.fill icon
+
+**Model Information Bar:**
+- **Model name** - Shows active model (llama3, gemma-2-2b, gpt-4, etc.)
+- **Privacy badge** - 🔒 "Private" for local providers, ☁️ "Cloud" for APIs
+- **Cost display** - Shows pricing per 1M tokens for paid services
+
+**Interactive Features:**
+- **Click badge** to open provider/model switcher dropdown
+- **Quick switching** between available providers and models
+- **Settings shortcut** for privacy and API key configuration
+- **Real-time updates** when providers change or models load
 
 #### TL;DR Card
 Automatically appears below the header when browsing:
@@ -224,6 +249,10 @@ Access via the shield icon in the AI sidebar:
 - **Cache location** - `~/.cache/huggingface/hub/`
 - **Manual management** - use provided scripts for troubleshooting
 
+**Local Providers**
+- **MLX (Apple Silicon)** - Gemma 2 2B (4-bit quantized), optimized for Apple Silicon
+- **Ollama** - Run any supported model locally (llama3, gemma, mistral, codellama, etc.)
+
 **Cloud Providers**
 Configure in Privacy Settings:
 - **OpenAI** - GPT-3.5, GPT-4, GPT-4 Turbo
@@ -241,6 +270,48 @@ Configure in Privacy Settings:
 - **Local AI preferred** - reduces network usage
 - **Efficient processing** - optimized for Apple Silicon
 - **Sleep mode support** - AI pauses when system sleeps
+
+### Ollama Configuration
+
+**Prerequisites**
+1. Install Ollama from [ollama.ai](https://ollama.ai)
+2. Start the Ollama service: `ollama serve`
+3. Download a model: `ollama pull llama3` (or any supported model)
+
+**Setup in Browser**
+1. Open **Settings** → **AI Provider**
+2. Select **Ollama (Local)** from available providers
+3. Configure connection settings:
+   - **Host**: Default `127.0.0.1` (localhost)
+   - **Port**: Default `11434`
+4. Select your preferred model from the dropdown
+
+**Supported Models**
+- **Llama 3** (8B, 70B) - General purpose chat and reasoning
+- **Code Llama** - Optimized for code generation
+- **Gemma** (2B, 7B) - Lightweight and efficient
+- **Mistral** (7B) - High performance multilingual
+- **Phi-3** - Microsoft's small language model
+
+**Benefits**
+- ✅ **Privacy**: All processing stays on your device
+- ✅ **No API costs**: Free to use any model
+- ✅ **Model flexibility**: Switch between any Ollama-compatible model
+- ✅ **Offline capable**: Works without internet connection
+- ✅ **Cross-platform**: Runs on Apple Silicon and Intel Macs
+- ⚡ **Fast startup**: Auto-detected and prioritized when running
+
+**Smart Initialization**
+The browser automatically detects if Ollama is running on startup and will:
+1. **Auto-select Ollama** if it's running and available (fast ~2 second startup)
+2. **Skip MLX initialization** when Ollama is preferred (saves 30-60 seconds)
+3. **Fallback to MLX/cloud** providers if Ollama is not running
+4. **Respect user preference** if a specific provider was previously selected
+
+**Troubleshooting Ollama**
+- **Connection failed**: Ensure Ollama service is running (`ollama serve`)
+- **No models available**: Download models with `ollama pull <model-name>`
+- **Slow responses**: Consider using smaller models (2B-7B) for better performance
 
 ### Logging & Debugging
 
