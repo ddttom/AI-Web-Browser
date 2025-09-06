@@ -148,7 +148,7 @@ class WebKitManager: ObservableObject {
     ///   - isOAuthFlow: Whether this is for OAuth flows
     private func setupEnhancedCookieHandling(for configuration: WKWebViewConfiguration, isOAuthFlow: Bool) {
         // Configure the website data store for optimal OAuth support
-        let dataStore = configuration.websiteDataStore
+        let _ = configuration.websiteDataStore
         
         if isOAuthFlow {
             // For OAuth flows, we need permissive cookie handling

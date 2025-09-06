@@ -149,9 +149,8 @@ class OllamaProvider: AIProvider, ObservableObject {
 
             return AIResponse(
                 text: responseText,
-                model: selectedModel ?? AIModel.defaultLocal,
-                usage: nil,
-                processingTime: responseTime
+                processingTime: responseTime,
+                tokenCount: tokenCount
             )
 
         } catch {
@@ -185,7 +184,7 @@ class OllamaProvider: AIProvider, ObservableObject {
                         prompt: prompt
                     ) { chunk in
                         if let response = chunk["response"] as? String, !response.isEmpty {
-                            totalTokens += estimateTokenCount(response)
+                            totalTokens += self.estimateTokenCount(response)
                             continuation.yield(response)
                         }
                     }
@@ -542,7 +541,7 @@ class OllamaProvider: AIProvider, ObservableObject {
         // Add recent conversation history (limit to avoid token overflow)
         let recentHistory = Array(history.suffix(5))
         for message in recentHistory {
-            prompt += "\(message.role.capitalized): \(message.content)\n"
+            prompt += "\(message.role.rawValue.capitalized): \(message.content)\n"
         }
 
         // Add current query
